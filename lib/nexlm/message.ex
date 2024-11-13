@@ -1,0 +1,99 @@
+defmodule Nexlm.Message.Content do
+  @moduledoc """
+  Message validation and formatting for LLM providers.
+
+  Provides a common structure for messages that can be sent to any LLM provider,
+  with validation and conversion utilities.
+
+  ## Message Structure
+  ```elixir
+  %{
+    role: "user" | "assistant" | "system",
+    content: String.t() | [ContentItem.t()]
+  }
+  ```
+
+  ## Content Types
+  - Text: Simple string content
+  - Image: Base64 encoded image with mime type
+
+  ## Examples
+      # Text message
+      %{
+        "role" => "user",
+        "content" => "Hello, how are you?"
+      }
+
+      # Message with image
+      %{
+        "role" => "user",
+        "content" => [
+          %{"type" => "text", "text" => "What's in this image?"},
+          %{
+            "type" => "image",
+            "mime_type" => "image/jpeg",
+            "data" => "base64_data"
+          }
+        ]
+      }
+  """
+
+  use Drops.Type, %{
+    required(:type) => string(in?: ["text", "image"]),
+    optional(:text) => string(),
+    optional(:mime_type) => string(),
+    optional(:data) => string(),
+    optional(:cache) => boolean()
+  }
+end
+
+defmodule Nexlm.Message do
+  use Drops.Contract
+  alias Nexlm.Error
+
+  schema(atomize: true) do
+    %{
+      required(:role) => string(in?: ["assistant", "user", "system"]),
+      required(:content) =>
+        union([
+          list(Nexlm.Message.Content),
+          string()
+        ])
+    }
+  end
+
+  def validate_message(message) when is_map(message) do
+    case conform(message) do
+      {:ok, validated} ->
+        {:ok, validated}
+
+      {:error, reason} ->
+        {:error,
+         Error.new(
+           :validation_error,
+           "Invalid message format: #{inspect(reason)}",
+           :message_validator
+         )}
+    end
+  end
+
+  def validate_message(_),
+    do: {:error, Error.new(:validation_error, "Message must be a map", :message_validator)}
+
+  def validate_messages(messages) when is_list(messages) do
+    messages
+    |> Enum.reduce_while({:ok, []}, fn message, {:ok, acc} ->
+      case validate_message(message) do
+        {:ok, validated} -> {:cont, {:ok, [validated | acc]}}
+        {:error, reason} -> {:halt, {:error, reason}}
+      end
+    end)
+    |> case do
+      {:ok, validated} -> {:ok, Enum.reverse(validated)}
+      error -> error
+    end
+  end
+
+  def validate_messages(_),
+    do: {:error, Error.new(:validation_error, "Messages must be a list", :message_validator)}
+end
