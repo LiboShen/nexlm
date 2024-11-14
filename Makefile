@@ -9,7 +9,7 @@ help:
 
 .PHONY: test
 test: ## Run tests
-	mix test --exclude integration:true --warnings-as-errors
+	mix test --exclude integration:true --warnings-as-errors --max-failures 3
 
 .PHONY: test.integration
 
