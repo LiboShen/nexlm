@@ -46,15 +46,15 @@ defmodule Nexlm do
 
       messages = [
         %{
-          "role" => "system", 
+          "role" => "system",
           "content" => "You are a mathematician who only responds with numbers"
         },
         %{
-          "role" => "user", 
+          "role" => "user",
           "content" => "What is five plus five?"
         }
       ]
-        
+
       {:ok, response} = Nexlm.complete("openai/gpt-4", messages, temperature: 0.7)
       # => {:ok, %{role: "assistant", content: "10"}}
 
@@ -151,8 +151,8 @@ defmodule Nexlm do
 
       # Image with caching enabled
       %{
-        "type" => "image", 
-        "mime_type" => "image/jpeg", 
+        "type" => "image",
+        "mime_type" => "image/jpeg",
         "data" => "base64_data",
         "cache" => true  # Enable caching
       }
@@ -172,10 +172,17 @@ defmodule Nexlm do
   - role: The role of the message sender ("user", "assistant", or "system")
   - content: The content of the message, either a string or a list of content items
   """
-  @type message :: %{
-    role: String.t(),
-    content: String.t() | [content_item]
-  }
+  @type message ::
+          %{
+            role: String.t(),
+            content: String.t() | [content_item]
+          }
+          | %{
+              # "tool"
+              role: String.t(),
+              tool_call_id: String.t(),
+              content: map()
+            }
 
   @typedoc """
   A content item in a message, used for multimodal inputs.
@@ -188,12 +195,12 @@ defmodule Nexlm do
   - cache: Whether this content should be cached by the provider
   """
   @type content_item :: %{
-    type: String.t(),
-    text: String.t() | nil,
-    mime_type: String.t() | nil,
-    data: String.t() | nil,
-    cache: boolean() | nil
-  }
+          type: String.t(),
+          text: String.t() | nil,
+          mime_type: String.t() | nil,
+          data: String.t() | nil,
+          cache: boolean() | nil
+        }
 
   @doc """
   Sends a request to an LLM provider and returns the response.

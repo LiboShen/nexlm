@@ -6,6 +6,27 @@ defmodule Nexlm.Behaviour do
           content: String.t() | list(map())
         }
 
+  @type tool_definition :: %{
+          name: String.t(),
+          description: String.t(),
+          parameters: %{
+            type: String.t(),
+            properties: map(),
+            required: [String.t()]
+          }
+        }
+
+  @type tool_call :: %{
+          id: String.t(),
+          name: String.t(),
+          arguments: map()
+        }
+
+  @type tool_result :: %{
+          id: String.t(),
+          result: any()
+        }
+
   @callback init(Keyword.t()) :: {:ok, Config.t()} | {:error, Error.t()}
 
   @callback validate_messages(list(message)) :: :ok | {:error, Error.t()}

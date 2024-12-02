@@ -142,7 +142,7 @@ defmodule Nexlm.Providers.Google do
            receive_timeout: config.receive_timeout
          ) do
       {:ok, %{status: 200, body: %{"candidates" => [%{"content" => content} | _]}}} ->
-        {:ok, format_response(content)}
+        {:ok, content}
 
       {:ok, %{status: _, body: %{"error" => %{"message" => message}}}} ->
         {:error, Error.new(:provider_error, message, :google)}
@@ -153,11 +153,11 @@ defmodule Nexlm.Providers.Google do
   end
 
   @impl true
-  def parse_response(%{role: role, content: content}) do
+  def parse_response(%{"parts" => parts, "role" => "model"}) do
     {:ok,
      %{
-       role: convert_response_role(role),
-       content: content
+       role: "assistant",
+       content: parts |> Enum.map_join("\n", & &1["text"])
      }}
   end
 
@@ -194,16 +194,6 @@ defmodule Nexlm.Providers.Google do
   defp convert_role("assistant"), do: "model"
   # Handle system role specially
   defp convert_role("system"), do: "user"
-
-  defp convert_response_role("model"), do: "assistant"
-  defp convert_response_role(role), do: role
-
-  defp format_response(%{"parts" => parts, "role" => "model"}) do
-    %{
-      role: "assistant",
-      content: parts |> Enum.map_join("\n", & &1["text"])
-    }
-  end
 
   defp default_safety_settings do
     [

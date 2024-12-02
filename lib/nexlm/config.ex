@@ -9,6 +9,7 @@ defmodule Nexlm.Config do
     field(:temperature, :float, default: 0.0)
     field(:max_tokens, :integer)
     field(:top_p, :float)
+    field(:tools, {:array, :map}, default: [])
     field(:receive_timeout, :integer, default: 300_000)
     field(:retry_count, :integer, default: 3)
     field(:retry_delay, :integer, default: 1000)

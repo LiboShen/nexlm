@@ -41,9 +41,19 @@ defmodule Nexlm.Message.Content do
   use Drops.Type, %{
     required(:type) => string(in?: ["text", "image"]),
     optional(:text) => string(),
+    # Image
     optional(:mime_type) => string(),
     optional(:data) => string(),
+    # Cache
     optional(:cache) => boolean()
+  }
+end
+
+defmodule Nexlm.Message.ToolCall do
+  use Drops.Type, %{
+    optional(:id) => string(),
+    optional(:name) => string(),
+    optional(:arguments) => map()
   }
 end
 
@@ -53,12 +63,15 @@ defmodule Nexlm.Message do
 
   schema(atomize: true) do
     %{
-      required(:role) => string(in?: ["assistant", "user", "system"]),
+      required(:role) => string(in?: ["assistant", "user", "system", "tool"]),
       required(:content) =>
         union([
           list(Nexlm.Message.Content),
-          string()
-        ])
+          string(),
+          map()
+        ]),
+      optional(:tool_call_id) => string(),
+      optional(:tool_calls) => list(Nexlm.Message.ToolCall)
     }
   end
 

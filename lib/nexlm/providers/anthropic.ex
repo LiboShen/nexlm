@@ -106,6 +106,7 @@ defmodule Nexlm.Providers.Anthropic do
       }
       |> maybe_add_temperature(config)
       |> maybe_add_top_p(config)
+      |> maybe_add_tools(config)
       |> Enum.filter(fn {_, v} -> v end)
       |> Map.new()
 
@@ -123,8 +124,8 @@ defmodule Nexlm.Providers.Anthropic do
            ],
            receive_timeout: config.receive_timeout
          ) do
-      {:ok, %{status: 200, body: %{"content" => [%{"text" => text}], "role" => role}}} ->
-        {:ok, %{content: text, role: role}}
+      {:ok, %{status: 200, body: body}} ->
+        {:ok, body}
 
       {:ok, %{status: 400, body: %{"error" => %{"message" => message}}}} ->
         {:error, Error.new(:provider_error, message, :anthropic)}
@@ -138,29 +139,63 @@ defmodule Nexlm.Providers.Anthropic do
   end
 
   @impl true
-  def parse_response(%{role: role, content: content}) do
-    {:ok, %{role: role, content: content}}
+  def parse_response(%{"content" => [%{"text" => text}], "role" => role}) do
+    {:ok, %{role: role, content: text}}
+  end
+
+  def parse_response(%{"content" => content, "role" => role}) do
+    tool_uses =
+      Enum.filter(content, fn item ->
+        item["type"] == "tool_use"
+      end)
+      |> Enum.map(fn item ->
+        %{id: item["id"], name: item["name"], arguments: item["input"]}
+      end)
+
+    text =
+      Enum.filter(content, fn item ->
+        item["type"] == "text"
+      end)
+      |> Enum.map(fn item ->
+        item["text"]
+      end)
+      |> Enum.join("")
+
+    case tool_uses do
+      [] ->
+        {:ok, %{role: role, content: text}}
+
+      tool_uses ->
+        {:ok, %{role: role, content: text, tool_calls: tool_uses}}
+    end
   end
 
   # Private helpers
 
-  defp format_message(%{role: role, content: content}) when is_binary(content) do
+  defp format_message(%{role: "tool", tool_call_id: tool_call_id, content: content}) do
     %{
-      role: role,
-      content: [%{type: "text", text: content}]
+      role: "user",
+      content: [build_tool_result(tool_call_id, content)]
     }
   end
 
-  defp format_message(%{role: role, content: content}) when is_list(content) do
-    %{
-      role: role,
-      content: Enum.map(content, &format_content_item/1)
-    }
+  defp format_message(%{role: role, content: content} = message) when is_binary(content) do
+    formatted_content = format_text_content(content)
+    tool_calls = format_tool_calls(message)
+
+    build_message(role, formatted_content ++ tool_calls)
+  end
+
+  defp format_message(%{role: role, content: content} = message) when is_list(content) do
+    formatted_content = Enum.map(content, &format_content_item/1)
+    tool_calls = format_tool_calls(message)
+
+    build_message(role, formatted_content ++ tool_calls)
   end
 
   defp format_content_item(%{type: "text", text: text} = item) do
     base = %{type: "text", text: text}
-    if Map.get(item, :cache), do: Map.put(base, :cache_control, %{type: "ephemeral"}), else: base
+    maybe_add_cache_control(base, item)
   end
 
   defp format_content_item(%{type: "image", mime_type: mime_type, data: data} = item) do
@@ -173,7 +208,37 @@ defmodule Nexlm.Providers.Anthropic do
       }
     }
 
-    if Map.get(item, :cache), do: Map.put(base, :cache_control, %{type: "ephemeral"}), else: base
+    maybe_add_cache_control(base, item)
+  end
+
+  defp format_content_item(%{type: "tool_use", id: id, name: name, input: input}) do
+    %{type: "tool_use", id: id, name: name, input: input}
+  end
+
+  defp format_tool_call(%{id: id, name: name, arguments: input}) do
+    %{type: "tool_use", id: id, name: name, input: input}
+  end
+
+  defp build_tool_result(tool_call_id, content) do
+    %{type: "tool_result", tool_use_id: tool_call_id, content: content}
+  end
+
+  defp format_text_content(""), do: []
+  defp format_text_content(content), do: [%{type: "text", text: content}]
+
+  defp format_tool_calls(message) do
+    Map.get(message, :tool_calls, [])
+    |> Enum.map(&format_tool_call/1)
+  end
+
+  defp build_message(role, content) do
+    %{role: role, content: content}
+  end
+
+  defp maybe_add_cache_control(base, item) do
+    if Map.get(item, :cache),
+      do: Map.put(base, :cache_control, %{type: "ephemeral"}),
+      else: base
   end
 
   defp maybe_add_temperature(request, %{temperature: temp}) when not is_nil(temp) do
@@ -187,6 +252,20 @@ defmodule Nexlm.Providers.Anthropic do
   end
 
   defp maybe_add_top_p(request, _), do: request
+
+  defp maybe_add_tools(request, %{tools: tools}) when length(tools) > 0 do
+    Map.put(request, :tools, Enum.map(tools, &format_tool/1))
+  end
+
+  defp maybe_add_tools(request, _), do: request
+
+  defp format_tool(tool) do
+    %{
+      name: tool.name,
+      description: tool.description,
+      input_schema: tool.parameters
+    }
+  end
 
   defp token do
     Application.get_env(:nexlm, Nexlm.Providers.Anthropic, [])

@@ -99,8 +99,8 @@ defmodule Nexlm.Providers.GoogleTest do
   describe "parse_response/1" do
     test "converts model role to assistant" do
       response = %{
-        role: "model",
-        content: "Hello there"
+        "role" => "model",
+        "parts" => [%{"text" => "Hello there"}]
       }
 
       assert {:ok, parsed} = Google.parse_response(response)
