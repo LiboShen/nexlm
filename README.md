@@ -248,10 +248,10 @@ Run the test suite:
 
 ```bash
 # Run unit tests only
-mix test
+make test
 
-# Run integration tests (requires API keys)
-mix test --only integration
+# Run integration tests (requires API keys in .env.local)
+make test.integration
 ```
 
 ## License
