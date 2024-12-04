@@ -35,7 +35,7 @@ defmodule Nexlm.MixProject do
       {:jason, "~> 1.4"},
       {:ecto, "~> 3.12"},
 
-      # Schema validation
+      # Schema validation with a fix haven't push to upstream.
       {:drops, git: "https://github.com/LiboShen/drops.git"},
 
       # Development dependencies

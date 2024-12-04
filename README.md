@@ -103,6 +103,64 @@ messages = [
 )
 ```
 
+### Tool Usage
+
+(Currently, only supported by the Anthropic provider)
+
+```elixir
+# Define available tools
+tools = [
+  %{
+    name: "get_weather",
+    description: "Get the weather for a location",
+    parameters: %{
+      type: "object",
+      properties: %{
+        location: %{
+          type: "string",
+          description: "The city and state, e.g. San Francisco, CA"
+        }
+      },
+      required: ["location"]
+    }
+  }
+]
+
+# Initial message
+messages = [
+  %{"role" => "user", "content" => "What's the weather in London?"}
+]
+
+# First call - model will request weather data
+{:ok, response} = Nexlm.complete(
+  "anthropic/claude-3-haiku-20240307",
+  messages,
+  tools: tools
+)
+
+# Handle tool call
+[%{id: tool_call_id, name: "get_weather", arguments: %{"location" => "London"}}] =
+  response.tool_calls
+
+# Add tool response to messages
+messages = messages ++ [
+  response,
+  %{
+    "role" => "tool",
+    "tool_call_id" => tool_call_id,
+    "content" => "sunny"
+  }
+]
+
+# Final call - model will incorporate tool response
+{:ok, response} = Nexlm.complete(
+  "anthropic/claude-3-haiku-20240307",
+  messages,
+  tools: tools
+)
+# => {:ok, %{role: "assistant", content: "The weather in London is sunny."}}
+```
+
 ## Error Handling
 
 ```elixir
