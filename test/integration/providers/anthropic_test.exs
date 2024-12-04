@@ -120,7 +120,7 @@ defmodule Integration.Providers.AnthropicTest do
       messages =
         messages ++
           [
-            result |> Jason.encode!() |> Jason.decode!(),
+            result,
             %{
               "role" => "tool",
               "tool_call_id" => tool_call_id,

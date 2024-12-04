@@ -128,16 +128,12 @@ defmodule Nexlm.Providers.OpenAI do
   end
 
   @impl true
-  def parse_response(%{"role" => role, "content" => content, "tool_calls" => tool_calls}) do
+  def parse_response(%{"role" => role, "content" => content}) do
     {:ok,
      %{
        role: role,
        content: content
      }}
-  end
-
-  def parse_response(%{"role" => role, "content" => content}) do
-    {:ok, %{role: role, content: content}}
   end
 
   # Private helpers

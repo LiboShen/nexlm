@@ -29,7 +29,7 @@ defmodule Nexlm.MixProject do
   defp deps do
     [
       # HTTP client
-      {:req, "~> 0.4.13"},
+      {:req, "~> 0.5"},
 
       # JSON handling
       {:jason, "~> 1.4"},

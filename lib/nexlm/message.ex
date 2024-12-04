@@ -95,6 +95,7 @@ defmodule Nexlm.Message do
 
   def validate_messages(messages) when is_list(messages) do
     messages
+    |> convert_atom_keys_to_strings()
     |> Enum.reduce_while({:ok, []}, fn message, {:ok, acc} ->
       case validate_message(message) do
         {:ok, validated} -> {:cont, {:ok, [validated | acc]}}
@@ -109,4 +110,19 @@ defmodule Nexlm.Message do
 
   def validate_messages(_),
     do: {:error, Error.new(:validation_error, "Messages must be a list", :message_validator)}
+
+  defp convert_atom_keys_to_strings(messages) when is_list(messages) do
+    Enum.map(messages, &convert_atom_keys_to_strings/1)
+  end
+
+  defp convert_atom_keys_to_strings(%{} = map) do
+    Map.new(map, fn {k, v} ->
+      {
+        if(is_atom(k), do: Atom.to_string(k), else: k),
+        convert_atom_keys_to_strings(v)
+      }
+    end)
+  end
+
+  defp convert_atom_keys_to_strings(value), do: value
 end
