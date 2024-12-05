@@ -1,6 +1,7 @@
 defmodule Nexlm do
   @moduledoc """
-  A unified interface for interacting with various Large Language Model (LLM) providers.
+  A unified interface (Nexus) for interacting with various Large Language Model
+  (LLM) providers in Elixir.
 
   Nexlm abstracts away provider-specific implementations while offering a clean,
   consistent API for developers. This enables easy integration with different LLM

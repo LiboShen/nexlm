@@ -1,6 +1,7 @@
 # Nexlm
 
-A unified interface for interacting with various Large Language Model (LLM) providers in Elixir. Nexlm abstracts away provider-specific implementations while offering a clean, consistent API for developers.
+A unified interface (Nexus) for interacting with various Large Language Model (LLM) providers in Elixir.
+Nexlm abstracts away provider-specific implementations while offering a clean, consistent API for developers.
 
 ## Features
 
