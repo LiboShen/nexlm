@@ -1,7 +1,7 @@
 defmodule Nexlm.MixProject do
   use Mix.Project
 
-  @version "0.1.0"
+  @version "0.1.1"
   @source_url "https://github.com/LiboShen/nexlm"
   @description "A unified interface for interacting with various Large Language Model (LLM) providers"
 
@@ -9,7 +9,7 @@ defmodule Nexlm.MixProject do
     [
       app: :nexlm,
       version: @version,
-      elixir: "~> 1.17",
+      elixir: "~> 1.14",
       name: "Nexlm",
       description: @description,
       source_url: @source_url,
