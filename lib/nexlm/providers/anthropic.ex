@@ -219,7 +219,12 @@ defmodule Nexlm.Providers.Anthropic do
     %{type: "tool_use", id: id, name: name, input: input}
   end
 
-  defp build_tool_result(tool_call_id, content) do
+  defp build_tool_result(tool_call_id, content) when is_list(content) do
+    text = Enum.map(content, & &1.text) |> Enum.join()
+    %{type: "tool_result", tool_use_id: tool_call_id, content: text}
+  end
+
+  defp build_tool_result(tool_call_id, content) when is_binary(content) do
     %{type: "tool_result", tool_use_id: tool_call_id, content: content}
   end
 
