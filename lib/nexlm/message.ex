@@ -38,45 +38,67 @@ defmodule Nexlm.Message.Content do
       }
   """
 
-  use Drops.Type, %{
-    required(:type) => string(in?: ["text", "image"]),
-    optional(:text) => string(),
+  use Elixact
+
+  schema do
+    field :type, :string do
+      choices(["text", "image"])
+    end
+
+    field :text, :string do
+      optional()
+    end
+
     # Image
-    optional(:mime_type) => string(),
-    optional(:data) => string(),
+    field :mime_type, :string do
+      optional()
+    end
+
+    field :data, :string do
+      optional()
+    end
+
     # Cache
-    optional(:cache) => boolean()
-  }
+    field :cache, :boolean do
+      optional()
+    end
+  end
 end
 
 defmodule Nexlm.Message.ToolCall do
-  use Drops.Type, %{
-    optional(:id) => string(),
-    optional(:name) => string(),
-    optional(:arguments) => map()
-  }
+  use Elixact
+
+  schema do
+    field(:id, :string)
+    field(:name, :string)
+    field(:arguments, :any)
+  end
 end
 
 defmodule Nexlm.Message do
-  use Drops.Contract
+  use Elixact
   alias Nexlm.Error
 
-  schema(atomize: true) do
-    %{
-      required(:role) => string(in?: ["assistant", "user", "system", "tool"]),
-      required(:content) =>
-        union([
-          list(Nexlm.Message.Content),
-          string(),
-          map()
-        ]),
-      optional(:tool_call_id) => string(),
-      optional(:tool_calls) => list(Nexlm.Message.ToolCall)
-    }
+  schema do
+    field :role, :string do
+      choices(["assistant", "user", "system", "tool"])
+    end
+
+    field :content, {:union, [:string, {:array, Nexlm.Message.Content}]} do
+    end
+
+    field :tool_call_id, :string do
+      optional()
+    end
+
+    field :tool_calls, {:array, Nexlm.Message.ToolCall} do
+      optional()
+      default([])
+    end
   end
 
   def validate_message(message) when is_map(message) do
-    case conform(message) do
+    case validate(message) do
       {:ok, validated} ->
         {:ok, validated}
 
