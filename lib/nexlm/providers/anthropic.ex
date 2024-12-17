@@ -65,11 +65,11 @@ defmodule Nexlm.Providers.Anthropic do
           do: {:ok, config},
           else: {:error, Error.new(:configuration_error, "Missing API key", :anthropic)}
 
-      {:error, changeset} ->
+      {:error, error} ->
         {:error,
          Error.new(
            :configuration_error,
-           "Invalid configuration: #{inspect(changeset.errors)}",
+           "Invalid configuration: #{inspect(error)}",
            :anthropic
          )}
     end

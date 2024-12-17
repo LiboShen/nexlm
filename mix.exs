@@ -31,10 +31,6 @@ defmodule Nexlm.MixProject do
       # HTTP client
       {:req, "~> 0.5"},
 
-      # JSON handling
-      {:jason, "~> 1.4"},
-      {:ecto, "~> 3.12"},
-
       # Schema validation
       {:elixact, "~> 0.1.0"},
 

@@ -79,11 +79,11 @@ defmodule Nexlm.Providers.Google do
           do: {:ok, config},
           else: {:error, Error.new(:configuration_error, "Missing API key", :google)}
 
-      {:error, changeset} ->
+      {:error, error} ->
         {:error,
          Error.new(
            :configuration_error,
-           "Invalid configuration: #{inspect(changeset.errors)}",
+           "Invalid configuration: #{inspect(error)}",
            :google
          )}
     end

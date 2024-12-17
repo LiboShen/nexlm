@@ -1,27 +1,49 @@
 defmodule Nexlm.Config do
-  use Ecto.Schema
-  import Ecto.Changeset
+  use Elixact
 
-  @type t :: %__MODULE__{}
-
-  embedded_schema do
+  schema do
     field(:model, :string)
-    field(:temperature, :float, default: 0.0)
-    field(:max_tokens, :integer)
-    field(:top_p, :float)
-    field(:tools, {:array, :map}, default: [])
-    field(:receive_timeout, :integer, default: 300_000)
-    field(:retry_count, :integer, default: 3)
-    field(:retry_delay, :integer, default: 1000)
+
+    field :temperature, :float do
+      gteq(0.0)
+      default(0.0)
+    end
+
+    field :max_tokens, :integer do
+      optional()
+      gt(0)
+    end
+
+    field :top_p, :float do
+      gteq(0.0)
+      lteq(1.0)
+      optional()
+    end
+
+    field :tools, {:array, Nexlm.Tool} do
+      default([])
+    end
+
+    field :receive_timeout, :integer do
+      default(300_000)
+    end
+
+    field :retry_count, :integer do
+      default(3)
+    end
+
+    field :retry_delay, :integer do
+      default(1000)
+    end
   end
 
-  def new(opts \\ []) do
-    %__MODULE__{}
-    |> cast(Map.new(opts), __schema__(:fields))
-    |> validate_required([:model])
-    |> validate_number(:temperature, greater_than_or_equal_to: 0)
-    |> validate_number(:max_tokens, greater_than: 0)
-    |> validate_number(:top_p, greater_than: 0, less_than_or_equal_to: 1)
-    |> apply_action(:insert)
+  def new(opts \\ [])
+
+  def new(opts) when is_list(opts) do
+    opts |> Map.new() |> new()
+  end
+
+  def new(opts) when is_map(opts) do
+    opts |> validate()
   end
 end

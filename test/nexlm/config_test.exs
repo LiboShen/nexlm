@@ -2,15 +2,6 @@ defmodule Nexlm.ConfigTest do
   use ExUnit.Case, async: true
   alias Nexlm.Config
 
-  # Helper function to convert changeset errors into a map of messages.
-  defp errors_on(changeset) do
-    Ecto.Changeset.traverse_errors(changeset, fn {msg, opts} ->
-      Regex.replace(~r"%{(\w+)}", msg, fn _, key ->
-        opts |> Keyword.get(String.to_existing_atom(key), key) |> to_string()
-      end)
-    end)
-  end
-
   describe "new/1" do
     test "creates valid config with minimal options" do
       assert {:ok, config} = Config.new(model: "test/model")
@@ -20,18 +11,21 @@ defmodule Nexlm.ConfigTest do
     end
 
     test "validates required fields" do
-      assert {:error, changeset} = Config.new([])
-      assert "can't be blank" in errors_on(changeset).model
+      assert {:error,
+              %Elixact.Error{code: :required, message: "field is required", path: [:model]}} =
+               Config.new([])
     end
 
     test "validates temperature range" do
-      assert {:error, changeset} = Config.new(model: "test/model", temperature: -1.0)
-      assert "must be greater than or equal to 0" in errors_on(changeset).temperature
+      assert {:error,
+              %Elixact.Error{path: [:temperature], code: :gteq, message: "failed gteq constraint"}} =
+               Config.new(model: "test/model", temperature: -1.0)
     end
 
     test "validates positive max_tokens" do
-      assert {:error, changeset} = Config.new(model: "test/model", max_tokens: 0)
-      assert "must be greater than 0" in errors_on(changeset).max_tokens
+      assert {:error,
+              %Elixact.Error{path: [:max_tokens], code: :gt, message: "failed gt constraint"}} =
+               Config.new(model: "test/model", max_tokens: 0)
     end
   end
 end
