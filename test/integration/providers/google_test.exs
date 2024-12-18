@@ -7,8 +7,9 @@ defmodule Integration.Providers.GoogleTest do
   describe "complete flow" do
     setup do
       api_key = System.get_env("GOOGLE_API_KEY")
+
       if is_binary(api_key) do
-        Application.put_env(:nexlm, Google, [api_key: api_key])
+        Application.put_env(:nexlm, Google, api_key: api_key)
         :ok
       else
         raise "Missing GOOGLE_API_KEY environment variable"
