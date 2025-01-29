@@ -2,7 +2,8 @@ defmodule Nexlm.Registry do
   @providers %{
     "anthropic" => Nexlm.Providers.Anthropic,
     "openai" => Nexlm.Providers.Openai,
-    "google" => Nexlm.Providers.Google
+    "google" => Nexlm.Providers.Google,
+    "groq" => Nexlm.Providers.Groq
   }
 
   def get_provider(model) when is_binary(model) do
