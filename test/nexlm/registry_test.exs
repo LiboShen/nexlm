@@ -5,7 +5,7 @@ defmodule Nexlm.RegistryTest do
   describe "get_provider/1" do
     test "returns provider module for valid model" do
       assert {:ok, Nexlm.Providers.Anthropic} = Registry.get_provider("anthropic/claude-3")
-      assert {:ok, Nexlm.Providers.Openai} = Registry.get_provider("openai/gpt-4")
+      assert {:ok, Nexlm.Providers.OpenAI} = Registry.get_provider("openai/gpt-4")
       assert {:ok, Nexlm.Providers.Google} = Registry.get_provider("google/gemini-pro")
     end
 

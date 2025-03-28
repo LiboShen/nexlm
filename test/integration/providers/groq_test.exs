@@ -20,11 +20,10 @@ defmodule Integration.Providers.GroqTest do
         %{"role" => "user", "content" => "What is 2+2? Answer with just the number."}
       ]
 
-      assert {:ok, config} = Groq.init(model: "groq/gemma2-9b-it")
-      assert {:ok, validated} = Groq.validate_messages(messages)
-      assert {:ok, request} = Groq.format_request(config, validated)
-      assert {:ok, response} = Groq.call(config, request)
-      assert {:ok, result} = Groq.parse_response(response)
+      {:ok, result} = Nexlm.complete(
+        "groq/gemma2-9b-it",
+        messages
+      )
 
       assert result.role == "assistant"
       assert String.contains?(result.content, "4")
@@ -39,11 +38,10 @@ defmodule Integration.Providers.GroqTest do
         %{"role" => "user", "content" => "What is five plus five?"}
       ]
 
-      assert {:ok, config} = Groq.init(model: "groq/gemma2-9b-it")
-      assert {:ok, validated} = Groq.validate_messages(messages)
-      assert {:ok, request} = Groq.format_request(config, validated)
-      assert {:ok, response} = Groq.call(config, request)
-      assert {:ok, result} = Groq.parse_response(response)
+      {:ok, result} = Nexlm.complete(
+        "groq/gemma2-9b-it",
+        messages
+      )
 
       assert result.role == "assistant"
       assert String.contains?(result.content, "10")
@@ -54,13 +52,11 @@ defmodule Integration.Providers.GroqTest do
         %{"role" => "user", "content" => "What is 2+2? Answer with just the number."}
       ]
 
-      assert {:ok, config} = Groq.init(model: "groq/gemma2-9b-it", temperature: 0.0)
-      assert {:ok, validated} = Groq.validate_messages(messages)
-      assert {:ok, request} = Groq.format_request(config, validated)
-      # Temperature should be adjusted to 1e-8
-      assert request.temperature == 1.0e-8
-      assert {:ok, response} = Groq.call(config, request)
-      assert {:ok, result} = Groq.parse_response(response)
+      {:ok, result} = Nexlm.complete(
+        "groq/gemma2-9b-it",
+        messages,
+        temperature: 0.0
+      )
 
       assert result.role == "assistant"
       assert String.contains?(result.content, "4")

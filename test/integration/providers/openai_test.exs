@@ -20,11 +20,10 @@ defmodule Integration.Providers.OpenAITest do
         %{"role" => "user", "content" => "What is 2+2? Answer with just the number."}
       ]
 
-      assert {:ok, config} = OpenAI.init(model: "openai/gpt-4")
-      assert {:ok, validated} = OpenAI.validate_messages(messages)
-      assert {:ok, request} = OpenAI.format_request(config, validated)
-      assert {:ok, response} = OpenAI.call(config, request)
-      assert {:ok, result} = OpenAI.parse_response(response)
+      {:ok, result} = Nexlm.complete(
+        "openai/gpt-4",
+        messages
+      )
 
       assert result.role == "assistant"
       assert result.content == "4"
@@ -39,11 +38,10 @@ defmodule Integration.Providers.OpenAITest do
         %{"role" => "user", "content" => "What is five plus five?"}
       ]
 
-      assert {:ok, config} = OpenAI.init(model: "openai/gpt-4")
-      assert {:ok, validated} = OpenAI.validate_messages(messages)
-      assert {:ok, request} = OpenAI.format_request(config, validated)
-      assert {:ok, response} = OpenAI.call(config, request)
-      assert {:ok, result} = OpenAI.parse_response(response)
+      {:ok, result} = Nexlm.complete(
+        "openai/gpt-4",
+        messages
+      )
 
       assert result.role == "assistant"
       assert result.content == "10"
@@ -64,11 +62,10 @@ defmodule Integration.Providers.OpenAITest do
         }
       ]
 
-      assert {:ok, config} = OpenAI.init(model: "openai/gpt-4o-mini")
-      assert {:ok, validated} = OpenAI.validate_messages(messages)
-      assert {:ok, request} = OpenAI.format_request(config, validated)
-      assert {:ok, response} = OpenAI.call(config, request)
-      assert {:ok, result} = OpenAI.parse_response(response)
+      {:ok, result} = Nexlm.complete(
+        "openai/gpt-4o-mini",
+        messages
+      )
 
       assert result.role == "assistant"
       assert String.contains?(result.content, "image")

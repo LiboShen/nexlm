@@ -21,11 +21,10 @@ defmodule Integration.Providers.GoogleTest do
         %{"role" => "user", "content" => "What is 2+2? Answer with just the number."}
       ]
 
-      assert {:ok, config} = Google.init(model: "gemini-1.5-flash-latest")
-      assert {:ok, validated} = Google.validate_messages(messages)
-      assert {:ok, request} = Google.format_request(config, validated)
-      assert {:ok, response} = Google.call(config, request)
-      assert {:ok, result} = Google.parse_response(response)
+      {:ok, result} = Nexlm.complete(
+        "google/gemini-1.5-flash-latest",
+        messages
+      )
 
       assert result.role == "assistant"
       assert result.content |> String.trim() == "4"
@@ -40,11 +39,10 @@ defmodule Integration.Providers.GoogleTest do
         %{"role" => "user", "content" => "What is five plus five?"}
       ]
 
-      assert {:ok, config} = Google.init(model: "gemini-1.5-flash-latest")
-      assert {:ok, validated} = Google.validate_messages(messages)
-      assert {:ok, request} = Google.format_request(config, validated)
-      assert {:ok, response} = Google.call(config, request)
-      assert {:ok, result} = Google.parse_response(response)
+      {:ok, result} = Nexlm.complete(
+        "google/gemini-1.5-flash-latest",
+        messages
+      )
 
       assert result.role == "assistant"
       assert result.content |> String.trim() == "10"
@@ -65,11 +63,10 @@ defmodule Integration.Providers.GoogleTest do
         }
       ]
 
-      assert {:ok, config} = Google.init(model: "gemini-1.5-pro-latest")
-      assert {:ok, validated} = Google.validate_messages(messages)
-      assert {:ok, request} = Google.format_request(config, validated)
-      assert {:ok, response} = Google.call(config, request)
-      assert {:ok, result} = Google.parse_response(response)
+      {:ok, result} = Nexlm.complete(
+        "google/gemini-1.5-pro-latest",
+        messages
+      )
 
       assert result.role == "assistant"
       assert String.contains?(result.content, "image")

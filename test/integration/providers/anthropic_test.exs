@@ -21,11 +21,11 @@ defmodule Integration.Providers.AnthropicTest do
         %{"role" => "user", "content" => "What is 2+2? Answer with just the number."}
       ]
 
-      assert {:ok, config} = Anthropic.init(model: "anthropic/claude-3-haiku-20240307")
-      assert {:ok, validated} = Anthropic.validate_messages(messages)
-      assert {:ok, request} = Anthropic.format_request(config, validated)
-      assert {:ok, response} = Anthropic.call(config, request)
-      assert {:ok, result} = Anthropic.parse_response(response)
+      {:ok, result} =
+        Nexlm.complete(
+          "anthropic/claude-3-haiku-20240307",
+          messages
+        )
 
       assert result.role == "assistant"
       assert result.content == "4"
@@ -40,11 +40,11 @@ defmodule Integration.Providers.AnthropicTest do
         %{"role" => "user", "content" => "What is five plus five?"}
       ]
 
-      assert {:ok, config} = Anthropic.init(model: "anthropic/claude-3-haiku-20240307")
-      assert {:ok, validated} = Anthropic.validate_messages(messages)
-      assert {:ok, request} = Anthropic.format_request(config, validated)
-      assert {:ok, response} = Anthropic.call(config, request)
-      assert {:ok, result} = Anthropic.parse_response(response)
+      {:ok, result} =
+        Nexlm.complete(
+          "anthropic/claude-3-haiku-20240307",
+          messages
+        )
 
       assert result.role == "assistant"
       assert result.content == "10"
@@ -66,11 +66,11 @@ defmodule Integration.Providers.AnthropicTest do
         }
       ]
 
-      assert {:ok, config} = Anthropic.init(model: "anthropic/claude-3-haiku-20240307")
-      assert {:ok, validated} = Anthropic.validate_messages(messages)
-      assert {:ok, request} = Anthropic.format_request(config, validated)
-      assert {:ok, response} = Anthropic.call(config, request)
-      assert {:ok, result} = Anthropic.parse_response(response)
+      {:ok, result} =
+        Nexlm.complete(
+          "anthropic/claude-3-haiku-20240307",
+          messages
+        )
 
       assert result.role == "assistant"
       assert String.contains?(result.content, "image")
@@ -81,31 +81,29 @@ defmodule Integration.Providers.AnthropicTest do
         %{"role" => "user", "content" => "What is the weather in London"}
       ]
 
-      assert {:ok, config} =
-               Anthropic.init(
-                 model: "anthropic/claude-3-haiku-20240307",
-                 tools: [
-                   %{
-                     name: "get_weather",
-                     description: "Get the weather for a location",
-                     parameters: %{
-                       type: "object",
-                       properties: %{
-                         location: %{
-                           type: "string",
-                           description: "The city and state, e.g. San Francisco, CA"
-                         }
-                       },
-                       required: ["location"]
-                     }
-                   }
-                 ]
-               )
+      tools = [
+        %{
+          name: "get_weather",
+          description: "Get the weather for a location",
+          parameters: %{
+            type: "object",
+            properties: %{
+              location: %{
+                type: "string",
+                description: "The city and state, e.g. San Francisco, CA"
+              }
+            },
+            required: ["location"]
+          }
+        }
+      ]
 
-      assert {:ok, validated} = Anthropic.validate_messages(messages)
-      assert {:ok, request} = Anthropic.format_request(config, validated)
-      assert {:ok, response} = Anthropic.call(config, request)
-      assert {:ok, result} = Anthropic.parse_response(response)
+      {:ok, result} =
+        Nexlm.complete(
+          "anthropic/claude-3-haiku-20240307",
+          messages,
+          tools: tools
+        )
 
       assert result.role == "assistant"
 
@@ -128,10 +126,12 @@ defmodule Integration.Providers.AnthropicTest do
             }
           ]
 
-      assert {:ok, validated} = Anthropic.validate_messages(messages)
-      assert {:ok, request} = Anthropic.format_request(config, validated)
-      assert {:ok, response} = Anthropic.call(config, request)
-      assert {:ok, result} = Anthropic.parse_response(response)
+      {:ok, result} =
+        Nexlm.complete(
+          "anthropic/claude-3-haiku-20240307",
+          messages,
+          tools: tools
+        )
 
       assert result.role == "assistant"
       assert result.content =~ "sunny"

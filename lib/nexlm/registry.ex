@@ -1,7 +1,7 @@
 defmodule Nexlm.Registry do
   @providers %{
     "anthropic" => Nexlm.Providers.Anthropic,
-    "openai" => Nexlm.Providers.Openai,
+    "openai" => Nexlm.Providers.OpenAI,
     "google" => Nexlm.Providers.Google,
     "groq" => Nexlm.Providers.Groq
   }
