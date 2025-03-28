@@ -17,6 +17,7 @@ Nexlm abstracts away provider-specific implementations while offering a clean, c
 - OpenAI (GPT-4, GPT-3.5)
 - Anthropic (Claude)
 - Google (Gemini)
+- Groq
 
 ## Installation
 
