@@ -75,7 +75,7 @@ defmodule Nexlm.Providers.Groq do
   @impl true
   def format_request(config, messages) do
     # Strip "groq/" prefix from model name
-    model = String.replace(config.model, "groq/", "")
+    model = String.replace_prefix(config.model, "groq/", "")
 
     request =
       %{
@@ -85,6 +85,7 @@ defmodule Nexlm.Providers.Groq do
         temperature: config.temperature
       }
       |> maybe_add_top_p(config)
+      |> maybe_add_tools(config)
       |> Enum.filter(fn {_, v} -> v end)
       |> Map.new()
 
@@ -121,40 +122,113 @@ defmodule Nexlm.Providers.Groq do
   end
 
   @impl true
-  def parse_response(%{"role" => role, "content" => content}) do
-    {:ok,
-     %{
-       role: role,
-       content: content
-     }}
+  def parse_response(%{"role" => role} = message) when role in ["assistant", "user", "tool", "system"] do
+    tool_calls =
+      case message do
+        %{"tool_calls" => [%{"function" => %{}} | _] = calls} ->
+          Enum.map(calls, fn %{"function" => %{"name" => name, "arguments" => args}, "id" => id} ->
+            case Jason.decode(args) do
+              {:ok, parsed_args} -> %{id: id, name: name, arguments: parsed_args}
+            end
+          end)
+
+        _ ->
+          []
+      end
+
+    text =
+      case message do
+        %{"content" => text} when is_binary(text) -> text
+        %{"content" => text_items} when is_list(text_items) ->
+          text_items
+          |> Enum.filter(&match?(%{type: "text", text: _}, &1))
+          |> Enum.map(& &1.text)
+          |> Enum.join("")
+        %{"content" => nil} -> ""
+        _ -> ""
+      end
+
+    case tool_calls do
+      [] -> {:ok, %{role: role, content: text}}
+      tool_calls -> {:ok, %{role: role, content: text, tool_calls: tool_calls}}
+    end
+  end
+
+  def parse_response(response) do
+    {:error, Error.new(:provider_error, "Invalid response format: #{inspect(response)}", :groq)}
   end
 
   # Private helpers
 
-  defp format_message(%{role: role, content: content}) when is_binary(content) do
+
+  defp format_message(%{role: "tool", tool_call_id: tool_call_id, content: content}) do
+    %{role: "tool", tool_call_id: tool_call_id, content: extract_text(content)}
+  end
+
+  defp format_message(%{role: "system", content: content}) do
+    text = extract_text(content)
+
+    %{role: "system", content: text}
+  end
+
+  defp format_message(%{role: "assistant", content: content} = message) do
+    text = extract_text(content)
+    tool_calls = format_tool_calls(message)
+
+    %{role: "assistant", content: text, tool_calls: tool_calls}
+  end
+
+
+  defp format_message(%{role: "user", content: content}) do
+    %{role: "user", content: content}
+  end
+
+  defp extract_text(content) when is_binary(content) do
+    content
+  end
+
+  defp extract_text(content) when is_list(content) do
+    content
+    |> Enum.filter(&match?(%{type: "text", text: _}, &1))
+    |> Enum.map(& &1.text)
+    |> Enum.join("")
+  end
+
+  defp format_tool_calls(%{tool_calls: tool_calls}) when is_list(tool_calls) do
+    Enum.map(tool_calls, &format_tool_call/1)
+  end
+
+  defp format_tool_calls(_), do: []
+
+  defp format_tool_call(%{id: id, name: name, arguments: arguments}) do
     %{
-      role: role,
-      content: content
+      id: id,
+      type: "function",
+      function: %{
+        name: name,
+        arguments: Jason.encode!(arguments)
+      }
     }
   end
 
-  defp format_message(%{role: role, content: content}) when is_list(content) do
-    # Groq doesn't support image messages, so we filter them out
-    text_content = Enum.filter(content, fn item ->
-      case item do
-        %{type: "text"} -> true
-        _ -> false
-      end
-    end)
-
-    %{
-      role: role,
-      content: Enum.map(text_content, &format_content_item/1)
-    }
+  defp maybe_add_tools(request, %{tools: tools}) when length(tools) > 0 do
+    Map.merge(request, %{
+      tools: Enum.map(tools, &format_tool/1),
+      tool_choice: "auto"
+    })
   end
 
-  defp format_content_item(%{type: "text", text: text}) do
-    %{type: "text", text: text}
+  defp maybe_add_tools(request, _), do: request
+
+  defp format_tool(tool) do
+    %{
+      type: "function",
+      function: %{
+        name: tool.name,
+        description: tool.description,
+        parameters: tool.parameters
+      }
+    }
   end
 
   defp maybe_add_top_p(request, %{top_p: top_p}) when not is_nil(top_p) do

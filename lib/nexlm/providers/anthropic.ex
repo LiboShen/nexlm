@@ -84,6 +84,7 @@ defmodule Nexlm.Providers.Anthropic do
   end
 
   @impl true
+  @spec format_request(any(), any()) :: {:ok, map()}
   def format_request(config, messages) do
     {system_message, messages} =
       case messages do
@@ -95,7 +96,7 @@ defmodule Nexlm.Providers.Anthropic do
       end
 
     # Strip "anthropic/" prefix from model name
-    model = String.replace(config.model, "anthropic/", "")
+    model = String.replace_prefix(config.model, "anthropic/", "")
 
     request =
       %{

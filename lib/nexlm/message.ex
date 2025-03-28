@@ -115,6 +115,26 @@ defmodule Nexlm.Message do
   def validate_message(_),
     do: {:error, Error.new(:validation_error, "Message must be a map", :message_validator)}
 
+  @doc """
+  Validates a list of messages against Nexlm's common message schema.
+
+  This function ensures that messages follow Nexlm's standard format before being sent
+  to providers. Each provider may have additional validation specific to their API format.
+
+  ## Parameters
+    * `messages` - List of messages to validate against Nexlm's schema
+
+  ## Returns
+    * `{:ok, messages}` - If all messages conform to Nexlm's schema
+    * `{:error, error}` - If any message doesn't conform to Nexlm's schema
+
+  ## Examples
+      iex> Message.validate_messages([%{"role" => "user", "content" => "Hello"}])
+      {:ok, [%{role: "user", content: "Hello"}]}
+
+      iex> Message.validate_messages([%{"role" => "invalid", "content" => "Hello"}])
+      {:error, %Error{type: :validation_error, message: "Invalid role"}}
+  """
   def validate_messages(messages) when is_list(messages) do
     messages
     |> convert_atom_keys_to_strings()

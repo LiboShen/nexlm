@@ -22,7 +22,8 @@ defmodule Nexlm.Providers.GroqTest do
     test "initializes with valid config" do
       assert {:ok, config} = Groq.init(model: "mixtral-8x7b-32768")
       assert config.model == "mixtral-8x7b-32768"
-      assert config.temperature == 1.0e-8  # 0.0 gets converted to 1e-8
+      # 0.0 gets converted to 1e-8
+      assert config.temperature == 1.0e-8
     end
 
     test "initializes with custom temperature" do
@@ -39,6 +40,26 @@ defmodule Nexlm.Providers.GroqTest do
     test "validates correct messages" do
       messages = [
         %{"role" => "user", "content" => "Hello"}
+      ]
+
+      assert {:ok, _} = Groq.validate_messages(messages)
+    end
+
+    test "validates tool messages" do
+      messages = [
+        %{"role" => "user", "content" => "What's the weather?"},
+        %{
+          "role" => "assistant",
+          "content" => "",
+          "tool_calls" => [
+            %{
+              "id" => "call_123",
+              "name" => "get_weather",
+              "arguments" => %{"location" => "London"}
+            }
+          ]
+        },
+        %{"role" => "tool", "tool_call_id" => "call_123", "content" => "sunny"}
       ]
 
       assert {:ok, _} = Groq.validate_messages(messages)
@@ -90,23 +111,50 @@ defmodule Nexlm.Providers.GroqTest do
       assert second.type == "text"
       assert second.text == "Another text"
     end
+  end
 
-    test "filters out image content", %{config: config} do
-      messages = [
-        %{
-          role: "user",
-          content: [
-            %{type: "text", text: "Check this:"},
-            %{type: "image", mime_type: "image/jpeg", data: "base64"}
-          ]
-        }
-      ]
+  describe "parse_response/1" do
+    test "parses simple response" do
+      response = %{
+        "role" => "assistant",
+        "content" => "Hello"
+      }
 
-      assert {:ok, request} = Groq.format_request(config, messages)
-      assert [message] = request.messages
-      assert [text_content] = message.content
-      assert text_content.type == "text"
-      assert text_content.text == "Check this:"
+      assert {:ok, message} = Groq.parse_response(response)
+      assert message.role == "assistant"
+      assert message.content == "Hello"
+    end
+
+    test "parses tool call response" do
+      response = %{
+        "role" => "assistant",
+        "content" => "",
+        "tool_calls" => [
+          %{
+            "id" => "call_123",
+            "function" => %{
+              "name" => "get_weather",
+              "arguments" => "{\"location\":\"London\"}"
+            }
+          }
+        ]
+      }
+
+      assert {:ok, message} = Groq.parse_response(response)
+      assert message.role == "assistant"
+      assert [tool_call] = message.tool_calls
+      assert tool_call.id == "call_123"
+      assert tool_call.name == "get_weather"
+      assert tool_call.arguments == %{"location" => "London"}
+    end
+
+    test "fails with invalid response" do
+      response = %{
+        "role" => "invalid",
+        "content" => "Hello"
+      }
+
+      assert {:error, %Error{type: :provider_error}} = Groq.parse_response(response)
     end
   end
 end

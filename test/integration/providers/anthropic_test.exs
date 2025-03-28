@@ -50,7 +50,6 @@ defmodule Integration.Providers.AnthropicTest do
       assert result.content == "10"
     end
 
-    @tag :skip_in_ci
     test "handles image input" do
       # Base64 encoded small test image
       test_image =
@@ -122,7 +121,7 @@ defmodule Integration.Providers.AnthropicTest do
             %{
               "role" => "tool",
               "tool_call_id" => tool_call_id,
-              "content" => [%{"text" => "sunny", "type" => "text"}]
+              "content" => "sunny"
             }
           ]
 
