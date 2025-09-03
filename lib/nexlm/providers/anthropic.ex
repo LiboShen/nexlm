@@ -47,7 +47,7 @@ defmodule Nexlm.Providers.Anthropic do
   """
 
   @behaviour Nexlm.Behaviour
-  alias Nexlm.{Config, Error, Message}
+  alias Nexlm.{Config, Debug, Error, Message}
 
   @receive_timeout 300_000
   @endpoint_url "https://api.anthropic.com/v1"
@@ -86,6 +86,8 @@ defmodule Nexlm.Providers.Anthropic do
   @impl true
   @spec format_request(any(), any()) :: {:ok, map()}
   def format_request(config, messages) do
+    Debug.log_transformation("Input messages", messages)
+
     {system_message, messages} =
       case messages do
         [%{role: "system", content: system} | rest] ->
@@ -98,10 +100,13 @@ defmodule Nexlm.Providers.Anthropic do
     # Strip "anthropic/" prefix from model name
     model = String.replace_prefix(config.model, "anthropic/", "")
 
+    formatted_messages = Enum.map(messages, &format_message/1)
+    Debug.log_transformation("Formatted messages", formatted_messages)
+
     request =
       %{
         model: model,
-        messages: Enum.map(messages, &format_message/1),
+        messages: formatted_messages,
         system: system_message,
         max_tokens: config.max_tokens
       }
@@ -111,32 +116,45 @@ defmodule Nexlm.Providers.Anthropic do
       |> Enum.filter(fn {_, v} -> v end)
       |> Map.new()
 
+    Debug.log_transformation("Final request", request)
     {:ok, request}
   end
 
   @impl true
   def call(config, request) do
-    case Req.post(@endpoint_url <> "/messages",
-           json: request,
-           headers: [
-             {"x-api-key", token()},
-             {"anthropic-version", "2023-06-01"},
-             {"anthropic-beta", "prompt-caching-2024-07-31"}
-           ],
-           receive_timeout: config.receive_timeout
-         ) do
-      {:ok, %{status: 200, body: body}} ->
-        {:ok, body}
+    url = @endpoint_url <> "/messages"
+    headers = [
+      {"x-api-key", token()},
+      {"anthropic-version", "2023-06-01"},
+      {"anthropic-beta", "prompt-caching-2024-07-31"}
+    ]
 
-      {:ok, %{status: 400, body: %{"error" => %{"message" => message}}}} ->
-        {:error, Error.new(:provider_error, message, :anthropic)}
+    Debug.log_request(:anthropic, :post, url, headers, request)
 
-      {:ok, %{status: 500, body: %{"error" => %{"message" => message}}}} ->
-        {:error, Error.new(:provider_error, message, :anthropic)}
+    Debug.time_call("Anthropic API request", fn ->
+      case Req.post(url,
+             json: request,
+             headers: headers,
+             receive_timeout: config.receive_timeout
+           ) do
+        {:ok, %{status: 200, body: body} = response} ->
+          Debug.log_response(200, response.headers, body)
+          {:ok, body}
 
-      {:error, %{reason: reason}} ->
-        {:error, Error.new(:network_error, "Request failed: #{inspect(reason)}", :anthropic)}
-    end
+        {:ok, %{status: status, body: %{"error" => %{"message" => message}} = body} = response} ->
+          Debug.log_response(status, response.headers, body)
+          error_type = if status >= 500, do: :provider_error, else: :provider_error
+          {:error, Error.new(error_type, message, :anthropic)}
+
+        {:ok, %{status: status, body: body} = response} ->
+          Debug.log_response(status, response.headers, body)
+          {:error, Error.new(:provider_error, "Unexpected response: #{inspect(body)}", :anthropic)}
+
+        {:error, %{reason: reason}} ->
+          Debug.log_response("ERROR", %{}, %{reason: reason})
+          {:error, Error.new(:network_error, "Request failed: #{inspect(reason)}", :anthropic)}
+      end
+    end)
   end
 
   @impl true

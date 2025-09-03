@@ -46,6 +46,9 @@ config :nexlm, Nexlm.Providers.Anthropic,
 
 config :nexlm, Nexlm.Providers.Google,
   api_key: System.get_env("GOOGLE_API_KEY")
+
+# Optional: Enable debug logging
+config :nexlm, :debug, true
 ```
 
 ## Basic Usage
@@ -243,6 +246,45 @@ Available options for `Nexlm.complete/3`:
 4. Commit your changes
 5. Push to your branch
 6. Create a Pull Request
+
+## Debug Logging
+
+Enable detailed debug logging to see exactly what requests are sent and what responses are received:
+
+```elixir
+# Enable in configuration
+config :nexlm, :debug, true
+```
+
+Or set environment variable:
+```bash
+export NEXLM_DEBUG=true
+```
+
+When enabled, debug logs will show:
+- Complete HTTP requests (with sensitive headers redacted)
+- Complete HTTP responses  
+- Message validation and transformation steps
+- Request timing information
+- Cache control headers (useful for debugging caching issues)
+
+Example debug output:
+```
+[debug] [Nexlm] Starting request for model: anthropic/claude-3-haiku-20240307
+[debug] [Nexlm] Input messages: [%{role: "user", content: [%{type: "image", cache: true, ...}]}]
+[debug] [Nexlm] Formatted messages: [%{role: "user", content: [%{type: "image", cache_control: %{type: "ephemeral"}, ...}]}]
+[debug] [Nexlm] Provider: anthropic
+[debug] [Nexlm] Request: POST https://api.anthropic.com/v1/messages
+[debug] [Nexlm] Headers: %{"x-api-key" => "[REDACTED]", "anthropic-beta" => "prompt-caching-2024-07-31"}
+[debug] [Nexlm] Response: 200 OK (342ms)
+[debug] [Nexlm] Complete request completed in 350ms
+```
+
+This is particularly useful for:
+- Debugging caching behavior
+- Understanding request/response transformations
+- Troubleshooting API issues
+- Performance monitoring
 
 ## Testing
 

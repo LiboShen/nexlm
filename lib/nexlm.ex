@@ -98,6 +98,33 @@ defmodule Nexlm do
       config :nexlm, Nexlm.Providers.Google,
         api_key: System.get_env("GOOGLE_API_KEY")
 
+  ## Debug Logging
+
+  Enable detailed debug logging to see request/response details:
+
+      # In configuration
+      config :nexlm, :debug, true
+
+      # Or via environment variable
+      export NEXLM_DEBUG=true
+
+  Debug logs include:
+  - Provider and model information
+  - Complete HTTP requests (headers, body) with sensitive data redacted
+  - Complete HTTP responses (status, headers, body)
+  - Message transformations and validation steps  
+  - Request timing information
+
+  Example debug output:
+
+      [debug] [Nexlm] Starting request for model: anthropic/claude-3-haiku-20240307
+      [debug] [Nexlm] Provider: anthropic
+      [debug] [Nexlm] Request: POST https://api.anthropic.com/v1/messages
+      [debug] [Nexlm] Headers: %{"x-api-key" => "[REDACTED]", ...}
+      [debug] [Nexlm] Body: %{model: "claude-3-haiku-20240307", messages: [...]}
+      [debug] [Nexlm] Response: 200 OK (342ms)
+      [debug] [Nexlm] Response Body: %{content: [...], role: "assistant"}
+
   ## Error Handling
 
   The library provides structured error handling:
