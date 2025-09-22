@@ -7,10 +7,12 @@ Nexlm abstracts away provider-specific implementations while offering a clean, c
 
 - Single, unified API for multiple LLM providers
 - Support for text and multimodal (image) inputs
+- Function/tool calling support (all providers)
 - Built-in validation and error handling
 - Configurable request parameters
 - Provider-agnostic message format
 - Caching support for reduced costs
+- Comprehensive debug logging
 
 ## Supported Providers
 
@@ -110,7 +112,7 @@ messages = [
 
 ### Tool Usage
 
-(Currently, only supported by the Anthropic provider)
+(Supported by all providers: OpenAI, Anthropic, Google, and Groq)
 
 ```elixir
 # Define available tools
