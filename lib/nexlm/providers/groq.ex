@@ -114,7 +114,8 @@ defmodule Nexlm.Providers.Groq do
         {:error, Error.new(:provider_error, message, :groq)}
 
       {:ok, %{status: status, body: body}} ->
-        {:error, Error.new(:provider_error, "Unexpected response: (#{status}) #{inspect(body)}", :groq)}
+        {:error,
+         Error.new(:provider_error, "Unexpected response: (#{status}) #{inspect(body)}", :groq)}
 
       {:error, %{reason: reason}} ->
         {:error, Error.new(:network_error, "Request failed: #{inspect(reason)}", :groq)}
@@ -122,7 +123,8 @@ defmodule Nexlm.Providers.Groq do
   end
 
   @impl true
-  def parse_response(%{"role" => role} = message) when role in ["assistant", "user", "tool", "system"] do
+  def parse_response(%{"role" => role} = message)
+      when role in ["assistant", "user", "tool", "system"] do
     tool_calls =
       case message do
         %{"tool_calls" => [%{"function" => %{}} | _] = calls} ->
@@ -138,14 +140,20 @@ defmodule Nexlm.Providers.Groq do
 
     text =
       case message do
-        %{"content" => text} when is_binary(text) -> text
+        %{"content" => text} when is_binary(text) ->
+          text
+
         %{"content" => text_items} when is_list(text_items) ->
           text_items
           |> Enum.filter(&match?(%{type: "text", text: _}, &1))
           |> Enum.map(& &1.text)
           |> Enum.join("")
-        %{"content" => nil} -> ""
-        _ -> ""
+
+        %{"content" => nil} ->
+          ""
+
+        _ ->
+          ""
       end
 
     case tool_calls do
@@ -159,7 +167,6 @@ defmodule Nexlm.Providers.Groq do
   end
 
   # Private helpers
-
 
   defp format_message(%{role: "tool", tool_call_id: tool_call_id, content: content}) do
     %{role: "tool", tool_call_id: tool_call_id, content: extract_text(content)}
@@ -177,7 +184,6 @@ defmodule Nexlm.Providers.Groq do
 
     %{role: "assistant", content: text, tool_calls: tool_calls}
   end
-
 
   defp format_message(%{role: "user", content: content}) do
     %{role: "user", content: content}

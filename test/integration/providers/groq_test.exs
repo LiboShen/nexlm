@@ -20,10 +20,11 @@ defmodule Integration.Providers.GroqTest do
         %{"role" => "user", "content" => "What is 2+2? Answer with just the number."}
       ]
 
-      {:ok, result} = Nexlm.complete(
-        "groq/gemma2-9b-it",
-        messages
-      )
+      {:ok, result} =
+        Nexlm.complete(
+          "groq/gemma2-9b-it",
+          messages
+        )
 
       assert result.role == "assistant"
       assert String.contains?(result.content, "4")
@@ -38,10 +39,11 @@ defmodule Integration.Providers.GroqTest do
         %{"role" => "user", "content" => "What is five plus five?"}
       ]
 
-      {:ok, result} = Nexlm.complete(
-        "groq/gemma2-9b-it",
-        messages
-      )
+      {:ok, result} =
+        Nexlm.complete(
+          "groq/gemma2-9b-it",
+          messages
+        )
 
       assert result.role == "assistant"
       assert String.contains?(result.content, "10")
@@ -52,11 +54,12 @@ defmodule Integration.Providers.GroqTest do
         %{"role" => "user", "content" => "What is 2+2? Answer with just the number."}
       ]
 
-      {:ok, result} = Nexlm.complete(
-        "groq/gemma2-9b-it",
-        messages,
-        temperature: 0.0
-      )
+      {:ok, result} =
+        Nexlm.complete(
+          "groq/gemma2-9b-it",
+          messages,
+          temperature: 0.0
+        )
 
       assert result.role == "assistant"
       assert String.contains?(result.content, "4")
@@ -84,11 +87,12 @@ defmodule Integration.Providers.GroqTest do
         }
       ]
 
-      {:ok, result} = Nexlm.complete(
-        "groq/gemma2-9b-it",
-        messages,
-        tools: tools
-      )
+      {:ok, result} =
+        Nexlm.complete(
+          "groq/gemma2-9b-it",
+          messages,
+          tools: tools
+        )
 
       assert result.role == "assistant"
 
@@ -101,7 +105,7 @@ defmodule Integration.Providers.GroqTest do
              ] = result.tool_calls
 
       # Test tool response handling
-          messages =
+      messages =
         messages ++
           [
             result,
@@ -112,11 +116,12 @@ defmodule Integration.Providers.GroqTest do
             }
           ]
 
-      {:ok, result} = Nexlm.complete(
-        "groq/gemma2-9b-it",
-        messages,
-        tools: tools
-      )
+      {:ok, result} =
+        Nexlm.complete(
+          "groq/gemma2-9b-it",
+          messages,
+          tools: tools
+        )
 
       assert result.role == "assistant"
       assert result.content =~ "sunny"
@@ -128,10 +133,11 @@ defmodule Integration.Providers.GroqTest do
       ]
 
       # Test with invalid model
-      assert {:error, error} = Nexlm.complete(
-        "groq/invalid-model",
-        messages
-      )
+      assert {:error, error} =
+               Nexlm.complete(
+                 "groq/invalid-model",
+                 messages
+               )
 
       assert error.type == :provider_error
       assert error.provider == :groq
@@ -140,10 +146,11 @@ defmodule Integration.Providers.GroqTest do
       original_key = Application.get_env(:nexlm, Groq)[:api_key]
       Application.put_env(:nexlm, Groq, api_key: "invalid_key")
 
-      assert {:error, error} = Nexlm.complete(
-        "groq/gemma2-9b-it",
-        messages
-      )
+      assert {:error, error} =
+               Nexlm.complete(
+                 "groq/gemma2-9b-it",
+                 messages
+               )
 
       assert error.type == :authentication_error
       assert error.provider == :groq

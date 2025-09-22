@@ -1,31 +1,31 @@
 defmodule Nexlm.Debug do
   @moduledoc """
   Debug logging utilities for Nexlm requests and responses.
-  
+
   Enables detailed logging of HTTP requests and responses to help with debugging
   provider integrations, caching behavior, and other issues.
-  
+
   ## Configuration
-  
+
   Enable debug logging in your runtime configuration:
-  
+
       config :nexlm, :debug, true
-  
+
   Or set the environment variable:
-  
+
       NEXLM_DEBUG=true
-  
+
   ## Log Output
-  
+
   When enabled, logs will include:
   - Provider being called
   - Full HTTP request (method, URL, headers, body)
   - Full HTTP response (status, headers, body)
   - Request/response timing
   - Any transformations applied to messages
-  
+
   ## Examples
-  
+
       # Enable debug logging
       Application.put_env(:nexlm, :debug, true)
       
@@ -41,19 +41,19 @@ defmodule Nexlm.Debug do
       # [debug] [Nexlm] Response Headers: %{"content-type" => "application/json", ...}
       # [debug] [Nexlm] Response Body: %{content: [...], role: "assistant"}
   """
-  
+
   require Logger
-  
+
   @doc """
   Check if debug logging is enabled.
-  
+
   Checks both application configuration and environment variables.
   """
   def enabled? do
-    Application.get_env(:nexlm, :debug, false) or 
-    System.get_env("NEXLM_DEBUG") in ["true", "1", "yes"]
+    Application.get_env(:nexlm, :debug, false) or
+      System.get_env("NEXLM_DEBUG") in ["true", "1", "yes"]
   end
-  
+
   @doc """
   Log a debug message if debug logging is enabled.
   """
@@ -62,14 +62,14 @@ defmodule Nexlm.Debug do
       Logger.debug("[Nexlm] #{message}")
     end
   end
-  
+
   @doc """
   Log request details if debug logging is enabled.
   """
   def log_request(provider, method, url, headers, body) when is_atom(provider) do
     log_request(Atom.to_string(provider), method, url, headers, body)
   end
-  
+
   def log_request(provider, method, url, headers, body) do
     if enabled?() do
       log("Provider: #{provider}")
@@ -78,7 +78,7 @@ defmodule Nexlm.Debug do
       log("Body: #{inspect(body, limit: :infinity, pretty: true)}")
     end
   end
-  
+
   @doc """
   Log response details if debug logging is enabled.
   """
@@ -90,7 +90,7 @@ defmodule Nexlm.Debug do
       log("Response Body: #{inspect(body, limit: :infinity, pretty: true)}")
     end
   end
-  
+
   @doc """
   Log message transformation if debug logging is enabled.
   """
@@ -99,7 +99,7 @@ defmodule Nexlm.Debug do
       log("#{stage}: #{inspect(data, limit: :infinity, pretty: true)}")
     end
   end
-  
+
   @doc """
   Time a function call and log the duration if debug logging is enabled.
   """
@@ -115,31 +115,32 @@ defmodule Nexlm.Debug do
       fun.()
     end
   end
-  
+
   # Private helpers
-  
+
   defp sanitize_headers(headers) when is_list(headers) do
     Enum.map(headers, &sanitize_header/1)
   end
-  
+
   defp sanitize_headers(headers) when is_map(headers) do
     Map.new(headers, fn {k, v} -> {k, sanitize_header_value(k, v)} end)
   end
-  
+
   defp sanitize_headers(headers), do: headers
-  
+
   defp sanitize_header({key, value}) do
     {key, sanitize_header_value(key, value)}
   end
-  
+
   defp sanitize_header_value(key, value) when is_binary(key) do
     key_lower = String.downcase(key)
+
     if String.contains?(key_lower, "key") or String.contains?(key_lower, "auth") do
       "[REDACTED]"
     else
       value
     end
   end
-  
+
   defp sanitize_header_value(_key, value), do: value
 end

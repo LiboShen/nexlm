@@ -123,6 +123,7 @@ defmodule Nexlm.Providers.Anthropic do
   @impl true
   def call(config, request) do
     url = @endpoint_url <> "/messages"
+
     headers = [
       {"x-api-key", token()},
       {"anthropic-version", "2023-06-01"},
@@ -148,7 +149,9 @@ defmodule Nexlm.Providers.Anthropic do
 
         {:ok, %{status: status, body: body} = response} ->
           Debug.log_response(status, response.headers, body)
-          {:error, Error.new(:provider_error, "Unexpected response: #{inspect(body)}", :anthropic)}
+
+          {:error,
+           Error.new(:provider_error, "Unexpected response: #{inspect(body)}", :anthropic)}
 
         {:error, %{reason: reason}} ->
           Debug.log_response("ERROR", %{}, %{reason: reason})
