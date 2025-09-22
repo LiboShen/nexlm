@@ -112,7 +112,7 @@ defmodule Nexlm do
   - Provider and model information
   - Complete HTTP requests (headers, body) with sensitive data redacted
   - Complete HTTP responses (status, headers, body)
-  - Message transformations and validation steps  
+  - Message transformations and validation steps
   - Request timing information
 
   Example debug output:
@@ -209,6 +209,7 @@ defmodule Nexlm do
               # "tool"
               role: String.t(),
               tool_call_id: String.t(),
+              tool_calls: list(map()),
               content: map()
             }
 
