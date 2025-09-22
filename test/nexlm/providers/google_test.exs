@@ -94,6 +94,74 @@ defmodule Nexlm.Providers.GoogleTest do
       assert text_part.text == "Check this:"
       assert image_part.inlineData.mimeType == "image/jpeg"
     end
+
+    test "formats request with tools", %{config: config} do
+      tools = [
+        %{
+          name: "get_weather",
+          description: "Get the weather for a location",
+          parameters: %{
+            type: "object",
+            properties: %{
+              location: %{type: "string", description: "The city"}
+            },
+            required: ["location"]
+          }
+        }
+      ]
+
+      config_with_tools = %{config | tools: tools}
+      messages = [%{role: "user", content: "What's the weather in SF?"}]
+
+      assert {:ok, request} = Google.format_request(config_with_tools, messages)
+      assert %{functionDeclarations: [tool]} = request.tools
+      assert tool.name == "get_weather"
+      assert tool.description == "Get the weather for a location"
+      assert tool.parameters.type == "object"
+    end
+
+    test "formats messages with tool calls", %{config: config} do
+      messages = [
+        %{
+          role: "assistant",
+          content: "I'll check the weather for you.",
+          tool_calls: [
+            %{
+              id: "call_get_weather_12345678",
+              name: "get_weather",
+              arguments: %{"location" => "San Francisco"}
+            }
+          ]
+        }
+      ]
+
+      assert {:ok, request} = Google.format_request(config, messages)
+      [content] = request.contents
+      assert content.role == "model"
+      assert length(content.parts) == 2
+
+      [text_part, function_call_part] = content.parts
+      assert text_part.text == "I'll check the weather for you."
+      assert function_call_part.functionCall.name == "get_weather"
+      assert function_call_part.functionCall.args == %{"location" => "San Francisco"}
+    end
+
+    test "formats tool result messages", %{config: config} do
+      messages = [
+        %{
+          role: "tool",
+          tool_call_id: "call_get_weather_12345678",
+          content: "Sunny, 75°F"
+        }
+      ]
+
+      assert {:ok, request} = Google.format_request(config, messages)
+      [content] = request.contents
+      assert content.role == "function"
+      [function_response] = content.parts
+      assert function_response.functionResponse.name == "get_weather"
+      assert function_response.functionResponse.response.result == "Sunny, 75°F"
+    end
   end
 
   describe "parse_response/1" do
@@ -106,6 +174,76 @@ defmodule Nexlm.Providers.GoogleTest do
       assert {:ok, parsed} = Google.parse_response(response)
       assert parsed.role == "assistant"
       assert parsed.content == "Hello there"
+    end
+
+    test "parses response with function calls" do
+      response = %{
+        "role" => "model",
+        "parts" => [
+          %{"text" => "I'll check the weather for you."},
+          %{
+            "functionCall" => %{
+              "name" => "get_weather",
+              "args" => %{"location" => "San Francisco"}
+            }
+          }
+        ]
+      }
+
+      assert {:ok, parsed} = Google.parse_response(response)
+      assert parsed.role == "assistant"
+      assert parsed.content == "I'll check the weather for you."
+      assert [tool_call] = parsed.tool_calls
+      assert tool_call.name == "get_weather"
+      assert tool_call.arguments == %{"location" => "San Francisco"}
+      assert String.starts_with?(tool_call.id, "call_get_weather_")
+    end
+
+    test "parses response with multiple function calls" do
+      response = %{
+        "role" => "model",
+        "parts" => [
+          %{"text" => "I'll check both locations."},
+          %{
+            "functionCall" => %{
+              "name" => "get_weather",
+              "args" => %{"location" => "San Francisco"}
+            }
+          },
+          %{
+            "functionCall" => %{
+              "name" => "get_weather",
+              "args" => %{"location" => "New York"}
+            }
+          }
+        ]
+      }
+
+      assert {:ok, parsed} = Google.parse_response(response)
+      assert parsed.role == "assistant"
+      assert parsed.content == "I'll check both locations."
+      assert length(parsed.tool_calls) == 2
+      assert Enum.all?(parsed.tool_calls, &(&1.name == "get_weather"))
+    end
+
+    test "parses response with function call but no text" do
+      response = %{
+        "role" => "model",
+        "parts" => [
+          %{
+            "functionCall" => %{
+              "name" => "get_weather",
+              "args" => %{"location" => "San Francisco"}
+            }
+          }
+        ]
+      }
+
+      assert {:ok, parsed} = Google.parse_response(response)
+      assert parsed.role == "assistant"
+      assert parsed.content == ""
+      assert [tool_call] = parsed.tool_calls
+      assert tool_call.name == "get_weather"
     end
   end
 end

@@ -21,10 +21,11 @@ defmodule Integration.Providers.GoogleTest do
         %{"role" => "user", "content" => "What is 2+2? Answer with just the number."}
       ]
 
-      {:ok, result} = Nexlm.complete(
-        "google/gemini-1.5-flash-latest",
-        messages
-      )
+      {:ok, result} =
+        Nexlm.complete(
+          "google/gemini-1.5-flash-latest",
+          messages
+        )
 
       assert result.role == "assistant"
       assert result.content |> String.trim() == "4"
@@ -39,10 +40,11 @@ defmodule Integration.Providers.GoogleTest do
         %{"role" => "user", "content" => "What is five plus five?"}
       ]
 
-      {:ok, result} = Nexlm.complete(
-        "google/gemini-1.5-flash-latest",
-        messages
-      )
+      {:ok, result} =
+        Nexlm.complete(
+          "google/gemini-1.5-flash-latest",
+          messages
+        )
 
       assert result.role == "assistant"
       assert result.content |> String.trim() == "10"
@@ -63,13 +65,96 @@ defmodule Integration.Providers.GoogleTest do
         }
       ]
 
-      {:ok, result} = Nexlm.complete(
-        "google/gemini-1.5-pro-latest",
-        messages
-      )
+      {:ok, result} =
+        Nexlm.complete(
+          "google/gemini-1.5-pro-latest",
+          messages
+        )
 
       assert result.role == "assistant"
       assert String.contains?(result.content, "image")
+    end
+
+    test "handles tool use" do
+      messages = [
+        %{
+          "role" => "system",
+          "content" =>
+            "You have access to tools. Use the get_weather function when asked about weather."
+        },
+        %{
+          "role" => "user",
+          "content" => "Please use the get_weather function to check the weather in London."
+        }
+      ]
+
+      tools = [
+        %{
+          name: "get_weather",
+          description:
+            "Get the current weather for a specific location. Use this function when users ask about weather.",
+          parameters: %{
+            type: "object",
+            properties: %{
+              location: %{
+                type: "string",
+                description: "The city name, e.g. London, Paris, Tokyo"
+              }
+            },
+            required: ["location"]
+          }
+        }
+      ]
+
+      {:ok, result} =
+        Nexlm.complete(
+          "google/gemini-1.5-flash-latest",
+          messages,
+          tools: tools,
+          temperature: 0.0
+        )
+
+      assert result.role == "assistant"
+
+      # Check if the model used the tool
+      case Map.get(result, :tool_calls) do
+        [
+          %{
+            id: tool_call_id,
+            arguments: %{"location" => location},
+            name: "get_weather"
+          }
+        ] ->
+          # Model used the tool - test the full flow
+          assert String.contains?(location, "London")
+
+          messages =
+            messages ++
+              [
+                result,
+                %{
+                  "role" => "tool",
+                  "tool_call_id" => tool_call_id,
+                  "content" => "sunny, 22°C"
+                }
+              ]
+
+          {:ok, result} =
+            Nexlm.complete(
+              "google/gemini-1.5-flash-latest",
+              messages,
+              tools: tools,
+              temperature: 0.0
+            )
+
+          assert result.role == "assistant"
+          assert result.content =~ "sunny"
+
+        nil ->
+          # Model chose not to use the tool - this is valid behavior
+          # Just verify it's a valid response
+          assert String.length(result.content) > 0
+      end
     end
   end
 end
