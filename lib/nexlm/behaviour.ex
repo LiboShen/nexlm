@@ -27,14 +27,14 @@ defmodule Nexlm.Behaviour do
           result: any()
         }
 
-  @callback init(Keyword.t()) :: {:ok, Config.t()} | {:error, Error.t()}
+  @callback init(Keyword.t()) :: {:ok, Config} | {:error, Error.t()}
 
   @callback validate_messages(list(message)) :: :ok | {:error, Error.t()}
 
-  @callback format_request(Config.t(), list(message)) ::
+  @callback format_request(Config, list(message)) ::
               {:ok, map()} | {:error, Error.t()}
 
-  @callback call(Config.t(), map()) ::
+  @callback call(Config, map()) ::
               {:ok, map()} | {:error, Error.t()}
 
   @callback parse_response(map()) ::
