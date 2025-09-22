@@ -48,7 +48,7 @@ defmodule Nexlm.Providers.OpenAI do
   """
 
   @behaviour Nexlm.Behaviour
-  alias Nexlm.{Config, Error, Message}
+  alias Nexlm.{Config, Debug, Error, Message}
 
   @receive_timeout 300_000
   @endpoint_url "https://api.openai.com/v1/chat"
@@ -87,6 +87,8 @@ defmodule Nexlm.Providers.OpenAI do
 
   @impl true
   def format_request(config, messages) do
+    Debug.log_transformation("Input messages", messages)
+
     # Strip "openai/" prefix from model name
     model = String.replace(config.model, "openai/", "")
 
@@ -98,58 +100,89 @@ defmodule Nexlm.Providers.OpenAI do
         temperature: config.temperature
       }
       |> maybe_add_top_p(config)
+      |> maybe_add_tools(config)
       |> Enum.filter(fn {_, v} -> v end)
       |> Map.new()
 
+    Debug.log_transformation("Final request", request)
     {:ok, request}
   end
 
   @impl true
   def call(config, request) do
-    case Req.post(@endpoint_url <> "/completions",
-           json: request,
-           headers: [
-             {"Authorization", "Bearer #{token()}"}
-           ],
-           receive_timeout: config.receive_timeout
-         ) do
-      {:ok, %{status: 200, body: %{"choices" => [%{"message" => message}]}}} ->
-        {:ok, message}
+    headers = [{"Authorization", "Bearer #{token()}"}]
 
-      {:ok, %{status: 400, body: %{"error" => %{"message" => message}}}} ->
-        {:error, Error.new(:provider_error, message, :openai)}
+    Debug.log_request(:openai, :post, @endpoint_url <> "/completions", headers, request)
 
-      {:ok, %{status: 500, body: %{"error" => %{"message" => message}}}} ->
-        {:error, Error.new(:provider_error, message, :openai)}
+    Debug.time_call("OpenAI API request", fn ->
+      case Req.post(@endpoint_url <> "/completions",
+             json: request,
+             headers: headers,
+             receive_timeout: config.receive_timeout
+           ) do
+        {:ok, %{status: 200, body: %{"choices" => [%{"message" => message}]} = body} = response} ->
+          Debug.log_response(200, response.headers, body)
+          {:ok, message}
 
-      {:error, %{reason: reason}} ->
-        {:error, Error.new(:network_error, "Request failed: #{inspect(reason)}", :openai)}
-    end
+        {:ok, %{status: status, body: %{"error" => %{"message" => message}} = body} = response} ->
+          Debug.log_response(status, response.headers, body)
+          error_type = if status >= 500, do: :provider_error, else: :provider_error
+          {:error, Error.new(error_type, message, :openai)}
+
+        {:ok, %{status: status, body: body} = response} ->
+          Debug.log_response(status, response.headers, body)
+          {:error, Error.new(:provider_error, "Unexpected response: #{inspect(body)}", :openai)}
+
+        {:error, %{reason: reason}} ->
+          Debug.log_response("ERROR", %{}, %{reason: reason})
+          {:error, Error.new(:network_error, "Request failed: #{inspect(reason)}", :openai)}
+      end
+    end)
   end
 
   @impl true
-  def parse_response(%{"role" => role, "content" => content}) do
-    {:ok,
-     %{
-       role: role,
-       content: content
-     }}
+  def parse_response(%{"role" => role, "content" => content} = message) do
+    # Check for tool calls
+    case Map.get(message, "tool_calls") do
+      nil ->
+        {:ok, %{role: role, content: content || ""}}
+
+      tool_calls ->
+        parsed_tool_calls =
+          Enum.map(tool_calls, fn tool_call ->
+            %{
+              id: tool_call["id"],
+              name: tool_call["function"]["name"],
+              arguments: Jason.decode!(tool_call["function"]["arguments"])
+            }
+          end)
+
+        {:ok, %{role: role, content: content || "", tool_calls: parsed_tool_calls}}
+    end
   end
 
   # Private helpers
 
-  defp format_message(%{role: role, content: content}) when is_binary(content) do
+  defp format_message(%{role: "tool", tool_call_id: tool_call_id, content: content}) do
     %{
-      role: role,
-      content: content
+      role: "tool",
+      tool_call_id: tool_call_id,
+      content: extract_text_content(content)
     }
   end
 
-  defp format_message(%{role: role, content: content}) when is_list(content) do
-    %{
+  defp format_message(%{role: role, content: content} = message) when is_binary(content) do
+    base = %{role: role, content: content}
+    maybe_add_tool_calls(base, message)
+  end
+
+  defp format_message(%{role: role, content: content} = message) when is_list(content) do
+    base = %{
       role: role,
       content: Enum.map(content, &format_content_item/1)
     }
+
+    maybe_add_tool_calls(base, message)
   end
 
   defp format_content_item(%{type: "text", text: text}) do
@@ -170,6 +203,53 @@ defmodule Nexlm.Providers.OpenAI do
   end
 
   defp maybe_add_top_p(request, _), do: request
+
+  defp maybe_add_tools(request, %{tools: tools}) when length(tools) > 0 do
+    formatted_tools = Enum.map(tools, &format_tool/1)
+    Map.put(request, :tools, formatted_tools)
+  end
+
+  defp maybe_add_tools(request, _), do: request
+
+  defp format_tool(tool) do
+    %{
+      type: "function",
+      function: %{
+        name: tool.name,
+        description: tool.description,
+        parameters: tool.parameters
+      }
+    }
+  end
+
+  defp maybe_add_tool_calls(message, %{tool_calls: tool_calls}) when length(tool_calls) > 0 do
+    formatted_tool_calls = Enum.map(tool_calls, &format_tool_call/1)
+    Map.put(message, :tool_calls, formatted_tool_calls)
+  end
+
+  defp maybe_add_tool_calls(message, _), do: message
+
+  defp format_tool_call(%{id: id, name: name, arguments: arguments}) do
+    %{
+      id: id,
+      type: "function",
+      function: %{
+        name: name,
+        arguments: Jason.encode!(arguments)
+      }
+    }
+  end
+
+  defp extract_text_content(content) when is_binary(content), do: content
+
+  defp extract_text_content(content) when is_list(content) do
+    content
+    |> Enum.filter(&Map.has_key?(&1, :text))
+    |> Enum.map(& &1.text)
+    |> Enum.join("")
+  end
+
+  defp extract_text_content(_), do: ""
 
   defp token do
     Application.get_env(:nexlm, Nexlm.Providers.OpenAI, [])

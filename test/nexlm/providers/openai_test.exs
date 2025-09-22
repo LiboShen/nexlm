@@ -84,5 +84,165 @@ defmodule Nexlm.Providers.OpenAITest do
       assert image_content.type == "image_url"
       assert image_content.image_url.url =~ "data:image/jpeg;base64,base64"
     end
+
+    test "formats request with tools", %{config: config} do
+      tools = [
+        %{
+          name: "get_weather",
+          description: "Get the weather for a location",
+          parameters: %{
+            type: "object",
+            properties: %{
+              location: %{type: "string", description: "The city"}
+            },
+            required: ["location"]
+          }
+        }
+      ]
+
+      config_with_tools = %{config | tools: tools}
+      messages = [%{role: "user", content: "What's the weather in SF?"}]
+
+      assert {:ok, request} = OpenAI.format_request(config_with_tools, messages)
+      assert [tool] = request.tools
+      assert tool.type == "function"
+      assert tool.function.name == "get_weather"
+      assert tool.function.description == "Get the weather for a location"
+      assert tool.function.parameters.type == "object"
+    end
+
+    test "formats messages with tool calls", %{config: config} do
+      messages = [
+        %{
+          role: "assistant",
+          content: "I'll check the weather for you.",
+          tool_calls: [
+            %{
+              id: "call_12345",
+              name: "get_weather",
+              arguments: %{"location" => "San Francisco"}
+            }
+          ]
+        }
+      ]
+
+      assert {:ok, request} = OpenAI.format_request(config, messages)
+      [message] = request.messages
+      assert message.role == "assistant"
+      assert message.content == "I'll check the weather for you."
+      [tool_call] = message.tool_calls
+      assert tool_call.id == "call_12345"
+      assert tool_call.type == "function"
+      assert tool_call.function.name == "get_weather"
+      assert tool_call.function.arguments == "{\"location\":\"San Francisco\"}"
+    end
+
+    test "formats tool result messages", %{config: config} do
+      messages = [
+        %{
+          role: "tool",
+          tool_call_id: "call_12345",
+          content: "Sunny, 75°F"
+        }
+      ]
+
+      assert {:ok, request} = OpenAI.format_request(config, messages)
+      [message] = request.messages
+      assert message.role == "tool"
+      assert message.tool_call_id == "call_12345"
+      assert message.content == "Sunny, 75°F"
+    end
+  end
+
+  describe "parse_response/1" do
+    test "parses simple response" do
+      response = %{
+        "role" => "assistant",
+        "content" => "Hello there"
+      }
+
+      assert {:ok, parsed} = OpenAI.parse_response(response)
+      assert parsed.role == "assistant"
+      assert parsed.content == "Hello there"
+    end
+
+    test "parses response with tool calls" do
+      response = %{
+        "role" => "assistant",
+        "content" => "I'll check the weather for you.",
+        "tool_calls" => [
+          %{
+            "id" => "call_12345",
+            "type" => "function",
+            "function" => %{
+              "name" => "get_weather",
+              "arguments" => "{\"location\":\"San Francisco\"}"
+            }
+          }
+        ]
+      }
+
+      assert {:ok, parsed} = OpenAI.parse_response(response)
+      assert parsed.role == "assistant"
+      assert parsed.content == "I'll check the weather for you."
+      assert [tool_call] = parsed.tool_calls
+      assert tool_call.id == "call_12345"
+      assert tool_call.name == "get_weather"
+      assert tool_call.arguments == %{"location" => "San Francisco"}
+    end
+
+    test "parses response with multiple tool calls" do
+      response = %{
+        "role" => "assistant",
+        "content" => "I'll check weather for both cities.",
+        "tool_calls" => [
+          %{
+            "id" => "call_12345",
+            "type" => "function",
+            "function" => %{
+              "name" => "get_weather",
+              "arguments" => "{\"location\":\"San Francisco\"}"
+            }
+          },
+          %{
+            "id" => "call_67890",
+            "type" => "function",
+            "function" => %{
+              "name" => "get_weather",
+              "arguments" => "{\"location\":\"New York\"}"
+            }
+          }
+        ]
+      }
+
+      assert {:ok, parsed} = OpenAI.parse_response(response)
+      assert parsed.role == "assistant"
+      assert parsed.content == "I'll check weather for both cities."
+      assert length(parsed.tool_calls) == 2
+      assert Enum.all?(parsed.tool_calls, &(&1.name == "get_weather"))
+    end
+
+    test "parses response with tool call but no content" do
+      response = %{
+        "role" => "assistant",
+        "content" => nil,
+        "tool_calls" => [
+          %{
+            "id" => "call_12345",
+            "type" => "function",
+            "function" => %{
+              "name" => "get_weather",
+              "arguments" => "{\"location\":\"San Francisco\"}"
+            }
+          }
+        ]
+      }
+
+      assert {:ok, parsed} = OpenAI.parse_response(response)
+      assert parsed.role == "assistant"
+      assert parsed.content == ""
+      assert [tool_call] = parsed.tool_calls
+      assert tool_call.name == "get_weather"
+    end
   end
 end
