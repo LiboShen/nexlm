@@ -1,7 +1,7 @@
 defmodule Nexlm.MixProject do
   use Mix.Project
 
-  @version "0.1.8"
+  @version "0.1.9"
   @source_url "https://github.com/LiboShen/nexlm"
   @description "A unified interface for interacting with various Large Language Model (LLM) providers"
 
