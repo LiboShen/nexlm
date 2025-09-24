@@ -30,6 +30,21 @@ defmodule Integration.Providers.OpenAITest do
       assert result.content == "4"
     end
 
+    test "simple text completion with gpt-5" do
+      messages = [
+        %{"role" => "user", "content" => "What is 2+2? Answer with just the number."}
+      ]
+
+      {:ok, result} =
+        Nexlm.complete(
+          "openai/gpt-5",
+          messages
+        )
+
+      assert result.role == "assistant"
+      assert result.content == "4"
+    end
+
     test "handles system messages" do
       messages = [
         %{

@@ -152,6 +152,59 @@ defmodule Nexlm.Providers.OpenAITest do
       assert message.tool_call_id == "call_12345"
       assert message.content == "Sunny, 75°F"
     end
+
+    test "uses max_tokens for traditional models", %{config: config} do
+      messages = [%{role: "user", content: "Hello"}]
+
+      assert {:ok, request} = OpenAI.format_request(config, messages)
+      assert Map.has_key?(request, :max_tokens)
+      assert request.max_tokens == 4000
+      refute Map.has_key?(request, :max_completion_tokens)
+    end
+
+    test "uses max_completion_tokens for GPT-5 model" do
+      {:ok, config} = OpenAI.init(model: "openai/gpt-5")
+      messages = [%{role: "user", content: "Hello"}]
+
+      assert {:ok, request} = OpenAI.format_request(config, messages)
+      assert Map.has_key?(request, :max_completion_tokens)
+      assert request.max_completion_tokens == 4000
+      refute Map.has_key?(request, :max_tokens)
+    end
+
+    test "uses max_completion_tokens for o1 model" do
+      {:ok, config} = OpenAI.init(model: "openai/o1")
+      messages = [%{role: "user", content: "Hello"}]
+
+      assert {:ok, request} = OpenAI.format_request(config, messages)
+      assert Map.has_key?(request, :max_completion_tokens)
+      assert request.max_completion_tokens == 4000
+      refute Map.has_key?(request, :max_tokens)
+    end
+
+    test "includes temperature for traditional models", %{config: config} do
+      messages = [%{role: "user", content: "Hello"}]
+
+      assert {:ok, request} = OpenAI.format_request(config, messages)
+      assert Map.has_key?(request, :temperature)
+      assert request.temperature == 0.0
+    end
+
+    test "excludes temperature for GPT-5 model" do
+      {:ok, config} = OpenAI.init(model: "openai/gpt-5")
+      messages = [%{role: "user", content: "Hello"}]
+
+      assert {:ok, request} = OpenAI.format_request(config, messages)
+      refute Map.has_key?(request, :temperature)
+    end
+
+    test "excludes temperature for o1 model" do
+      {:ok, config} = OpenAI.init(model: "openai/o1-preview")
+      messages = [%{role: "user", content: "Hello"}]
+
+      assert {:ok, request} = OpenAI.format_request(config, messages)
+      refute Map.has_key?(request, :temperature)
+    end
   end
 
   describe "parse_response/1" do

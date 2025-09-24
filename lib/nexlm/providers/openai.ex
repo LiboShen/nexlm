@@ -4,9 +4,12 @@ defmodule Nexlm.Providers.OpenAI do
 
   ## Model Names
   Models should be prefixed with "openai/", for example:
+  - "openai/gpt-5" (reasoning model)
   - "openai/gpt-4"
   - "openai/gpt-4-vision-preview"
   - "openai/gpt-3.5-turbo"
+  - "openai/o1" (reasoning model)
+  - "openai/o1-preview" (reasoning model)
 
   ## Message Formats
   Supports the following message types:
@@ -20,8 +23,8 @@ defmodule Nexlm.Providers.OpenAI do
   - Model name in request
 
   Optional:
-  - temperature: Float between 0 and 1 (default: 0.0)
-  - max_tokens: Integer for response length limit
+  - temperature: Float between 0 and 1 (not supported by reasoning models like GPT-5, o1)
+  - max_tokens: Integer for response length limit (default: 4000)
   - top_p: Float between 0 and 1 for nucleus sampling
 
   ## Examples
@@ -45,6 +48,11 @@ defmodule Nexlm.Providers.OpenAI do
       }
     ]
     config = OpenAI.init(model: "openai/gpt-4o-mini")
+
+    # GPT-5 reasoning model (no temperature support)
+    config = OpenAI.init(model: "openai/gpt-5")
+    messages = [%{"role" => "user", "content" => "Solve this step by step: What is 15% of 240?"}]
+    {:ok, response} = OpenAI.call(config, messages)
   """
 
   @behaviour Nexlm.Behaviour
@@ -59,7 +67,6 @@ defmodule Nexlm.Providers.OpenAI do
       opts
       |> Keyword.put_new(:receive_timeout, @receive_timeout)
       |> Keyword.put_new(:max_tokens, 4000)
-      |> Keyword.put_new(:temperature, 0.0)
 
     case Config.new(config_opts) do
       {:ok, config} ->
@@ -95,10 +102,10 @@ defmodule Nexlm.Providers.OpenAI do
     request =
       %{
         model: model,
-        messages: Enum.map(messages, &format_message/1),
-        max_tokens: config.max_tokens,
-        temperature: config.temperature
+        messages: Enum.map(messages, &format_message/1)
       }
+      |> maybe_add_tokens_param(config, model)
+      |> maybe_add_temperature(config, model)
       |> maybe_add_top_p(config)
       |> maybe_add_tools(config)
       |> Enum.filter(fn {_, v} -> v end)
@@ -196,6 +203,29 @@ defmodule Nexlm.Providers.OpenAI do
         url: "data:#{mime_type};base64,#{data}"
       }
     }
+  end
+
+  defp maybe_add_tokens_param(request, config, model) do
+    if is_reasoning_model?(model) do
+      Map.put(request, :max_completion_tokens, config.max_tokens)
+    else
+      Map.put(request, :max_tokens, config.max_tokens)
+    end
+  end
+
+  defp is_reasoning_model?(model) do
+    model in ["gpt-5", "gpt-5-mini", "o1", "o1-mini", "o1-preview"] or
+      String.starts_with?(model, "gpt-5") or
+      String.starts_with?(model, "o1")
+  end
+
+  defp maybe_add_temperature(request, config, model) do
+    # Reasoning models don't support temperature parameter - skip it
+    if is_reasoning_model?(model) do
+      request
+    else
+      Map.put(request, :temperature, config.temperature)
+    end
   end
 
   defp maybe_add_top_p(request, %{top_p: top_p}) when not is_nil(top_p) do

@@ -16,7 +16,7 @@ Nexlm abstracts away provider-specific implementations while offering a clean, c
 
 ## Supported Providers
 
-- OpenAI (GPT-4, GPT-3.5)
+- OpenAI (GPT-5, GPT-4, GPT-3.5, o1)
 - Anthropic (Claude)
 - Google (Gemini)
 - Groq
@@ -200,12 +200,19 @@ Model names must be prefixed with the provider name:
 
 Available options for `Nexlm.complete/3`:
 
-- `:temperature` - Float between 0 and 1 (default: 0.0)
-- `:max_tokens` - Maximum tokens in response
+- `:temperature` - Float between 0 and 1 (default: 0.0) *Note: Not supported by reasoning models (GPT-5, o1)*
+- `:max_tokens` - Maximum tokens in response (default: 4000)
 - `:top_p` - Float between 0 and 1 for nucleus sampling
 - `:receive_timeout` - Timeout in milliseconds (default: 300_000)
 - `:retry_count` - Number of retry attempts (default: 3)
 - `:retry_delay` - Delay between retries in milliseconds (default: 1000)
+
+### Reasoning Models (GPT-5, o1)
+
+Reasoning models have special parameter requirements:
+- **Temperature**: Not supported - these models use a fixed temperature internally
+- **Token limits**: Use `max_completion_tokens` parameter internally (handled automatically)
+- **Reasoning tokens**: Models use hidden reasoning tokens that don't appear in output but count toward usage
 
 ## Message Format
 
