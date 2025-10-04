@@ -23,7 +23,7 @@ defmodule Integration.Providers.GoogleTest do
 
       {:ok, result} =
         Nexlm.complete(
-          "google/gemini-1.5-flash-latest",
+          "google/gemini-2.5-flash",
           messages
         )
 
@@ -42,7 +42,7 @@ defmodule Integration.Providers.GoogleTest do
 
       {:ok, result} =
         Nexlm.complete(
-          "google/gemini-1.5-flash-latest",
+          "google/gemini-2.5-flash",
           messages
         )
 
@@ -67,7 +67,7 @@ defmodule Integration.Providers.GoogleTest do
 
       {:ok, result} =
         Nexlm.complete(
-          "google/gemini-1.5-pro-latest",
+          "google/gemini-2.5-flash",
           messages
         )
 
@@ -108,7 +108,7 @@ defmodule Integration.Providers.GoogleTest do
 
       {:ok, result} =
         Nexlm.complete(
-          "google/gemini-1.5-flash-latest",
+          "google/gemini-2.5-flash",
           messages,
           tools: tools,
           temperature: 0.0
@@ -141,7 +141,7 @@ defmodule Integration.Providers.GoogleTest do
 
           {:ok, result} =
             Nexlm.complete(
-              "google/gemini-1.5-flash-latest",
+              "google/gemini-2.5-flash",
               messages,
               tools: tools,
               temperature: 0.0
