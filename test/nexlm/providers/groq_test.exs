@@ -5,13 +5,22 @@ defmodule Nexlm.Providers.GroqTest do
 
   setup do
     original_config = Application.get_env(:nexlm, Groq)
+    original_http_client = Application.get_env(:nexlm, :http_client)
 
     Application.put_env(:nexlm, Groq, api_key: "test_key")
+    Application.put_env(:nexlm, :http_client, Test.Support.HTTPStub)
+    Test.Support.HTTPStub.reset()
 
     on_exit(fn ->
       case original_config do
         nil -> Application.delete_env(:nexlm, Groq)
         config -> Application.put_env(:nexlm, Groq, config)
+      end
+
+      if original_http_client do
+        Application.put_env(:nexlm, :http_client, original_http_client)
+      else
+        Application.delete_env(:nexlm, :http_client)
       end
     end)
 
@@ -155,6 +164,24 @@ defmodule Nexlm.Providers.GroqTest do
       }
 
       assert {:error, %Error{type: :provider_error}} = Groq.parse_response(response)
+    end
+  end
+
+  describe "call/2" do
+    test "includes status in provider error details" do
+      Test.Support.HTTPStub.put(fn _url, _opts ->
+        {:ok,
+         %{
+           status: 500,
+           headers: [],
+           body: %{"error" => %{"message" => "internal error"}}
+         }}
+      end)
+
+      {:ok, config} = Groq.init(model: "mixtral-8x7b-32768")
+
+      assert {:error, %Error{type: :provider_error, details: %{status: 500}}} =
+               Groq.call(config, %{})
     end
   end
 end

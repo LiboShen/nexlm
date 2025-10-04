@@ -35,7 +35,7 @@ defmodule Nexlm.Providers.Groq do
   """
 
   @behaviour Nexlm.Behaviour
-  alias Nexlm.{Config, Error, Message}
+  alias Nexlm.{Config, Error, HTTP, Message}
 
   @receive_timeout 300_000
   @endpoint_url "https://api.groq.com/openai/v1/chat"
@@ -94,7 +94,7 @@ defmodule Nexlm.Providers.Groq do
 
   @impl true
   def call(config, request) do
-    case Req.post(@endpoint_url <> "/completions",
+    case HTTP.post(@endpoint_url <> "/completions",
            json: request,
            headers: [
              {"Authorization", "Bearer #{token()}"}
@@ -105,17 +105,19 @@ defmodule Nexlm.Providers.Groq do
         {:ok, message}
 
       {:ok, %{status: 401, body: %{"error" => %{"message" => message}}}} ->
-        {:error, Error.new(:authentication_error, message, :groq)}
+        {:error, Error.new(:authentication_error, message, :groq, %{status: 401})}
 
       {:ok, %{status: 400, body: %{"error" => %{"message" => message}}}} ->
-        {:error, Error.new(:provider_error, message, :groq)}
+        {:error, Error.new(:provider_error, message, :groq, %{status: 400})}
 
       {:ok, %{status: 500, body: %{"error" => %{"message" => message}}}} ->
-        {:error, Error.new(:provider_error, message, :groq)}
+        {:error, Error.new(:provider_error, message, :groq, %{status: 500})}
 
       {:ok, %{status: status, body: body}} ->
         {:error,
-         Error.new(:provider_error, "Unexpected response: (#{status}) #{inspect(body)}", :groq)}
+         Error.new(:provider_error, "Unexpected response: (#{status}) #{inspect(body)}", :groq, %{
+           status: status
+         })}
 
       {:error, %{reason: reason}} ->
         {:error, Error.new(:network_error, "Request failed: #{inspect(reason)}", :groq)}

@@ -5,13 +5,22 @@ defmodule Nexlm.Providers.GoogleTest do
 
   setup do
     original_config = Application.get_env(:nexlm, Google)
+    original_http_client = Application.get_env(:nexlm, :http_client)
 
     Application.put_env(:nexlm, Google, api_key: "test_key")
+    Application.put_env(:nexlm, :http_client, Test.Support.HTTPStub)
+    Test.Support.HTTPStub.reset()
 
     on_exit(fn ->
       case original_config do
         nil -> Application.delete_env(:nexlm, Google)
         config -> Application.put_env(:nexlm, Google, config)
+      end
+
+      if original_http_client do
+        Application.put_env(:nexlm, :http_client, original_http_client)
+      else
+        Application.delete_env(:nexlm, :http_client)
       end
     end)
 
@@ -244,6 +253,24 @@ defmodule Nexlm.Providers.GoogleTest do
       assert parsed.content == ""
       assert [tool_call] = parsed.tool_calls
       assert tool_call.name == "get_weather"
+    end
+  end
+
+  describe "call/2" do
+    test "includes status in provider error details" do
+      Test.Support.HTTPStub.put(fn _url, _opts ->
+        {:ok,
+         %{
+           status: 429,
+           headers: [],
+           body: %{"error" => %{"message" => "quota exceeded"}}
+         }}
+      end)
+
+      {:ok, config} = Google.init(model: "google/gemini-pro")
+
+      assert {:error, %Error{type: :provider_error, details: %{status: 429}}} =
+               Google.call(config, %{})
     end
   end
 end

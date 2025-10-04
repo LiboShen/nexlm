@@ -56,7 +56,7 @@ defmodule Nexlm.Providers.OpenAI do
   """
 
   @behaviour Nexlm.Behaviour
-  alias Nexlm.{Config, Debug, Error, Message}
+  alias Nexlm.{Config, Debug, Error, HTTP, Message}
 
   @receive_timeout 300_000
   @endpoint_url "https://api.openai.com/v1/chat"
@@ -122,7 +122,7 @@ defmodule Nexlm.Providers.OpenAI do
     Debug.log_request(:openai, :post, @endpoint_url <> "/completions", headers, request)
 
     Debug.time_call("OpenAI API request", fn ->
-      case Req.post(@endpoint_url <> "/completions",
+      case HTTP.post(@endpoint_url <> "/completions",
              json: request,
              headers: headers,
              receive_timeout: config.receive_timeout
@@ -133,12 +133,15 @@ defmodule Nexlm.Providers.OpenAI do
 
         {:ok, %{status: status, body: %{"error" => %{"message" => message}} = body} = response} ->
           Debug.log_response(status, response.headers, body)
-          error_type = if status >= 500, do: :provider_error, else: :provider_error
-          {:error, Error.new(error_type, message, :openai)}
+          {:error, Error.new(:provider_error, message, :openai, %{status: status})}
 
         {:ok, %{status: status, body: body} = response} ->
           Debug.log_response(status, response.headers, body)
-          {:error, Error.new(:provider_error, "Unexpected response: #{inspect(body)}", :openai)}
+
+          {:error,
+           Error.new(:provider_error, "Unexpected response: #{inspect(body)}", :openai, %{
+             status: status
+           })}
 
         {:error, %{reason: reason}} ->
           Debug.log_response("ERROR", %{}, %{reason: reason})

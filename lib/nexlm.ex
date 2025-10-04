@@ -133,12 +133,16 @@ defmodule Nexlm do
         {:ok, response} ->
           handle_success(response)
 
-        {:error, %Nexlm.Error{type: :rate_limit_error}} ->
-          apply_rate_limit_backoff()
+        {:error, %Nexlm.Error{type: :network_error}} ->
+          retry_request()
 
-        {:error, %Nexlm.Error{type: :provider_error, message: msg}} ->
-          Logger.error("Provider error: \#{msg}")
-          handle_provider_error()
+        {:error, %Nexlm.Error{type: :provider_error, message: msg, details: details}} ->
+          status = Map.get(details, :status, "n/a")
+          Logger.error("Provider error (status \#{status}): \#{msg}")
+          handle_provider_error(status)
+
+        {:error, %Nexlm.Error{type: :authentication_error}} ->
+          refresh_credentials()
 
         {:error, error} ->
           Logger.error("Unexpected error: \#{inspect(error)}")
@@ -306,9 +310,12 @@ defmodule Nexlm do
   Possible error types:
   - `:validation_error` - Invalid message format or content
   - `:provider_error` - Provider-specific API errors
-  - `:rate_limit_error` - Rate limit exceeded
-  - `:timeout_error` - Request timeout
+  - `:network_error` - Transport or connectivity failure
+  - `:authentication_error` - Provider rejected supplied credentials
   - `:configuration_error` - Invalid configuration
+
+  For `:provider_error` results, the `details` map includes the provider's HTTP
+  status code when available (under the `:status` key).
   """
   @spec complete(String.t(), [message], keyword()) ::
           {:ok, message} | {:error, Error.t()}

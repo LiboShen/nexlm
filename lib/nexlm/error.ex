@@ -2,8 +2,8 @@ defmodule Nexlm.Error do
   @type error_type ::
           :validation_error
           | :provider_error
-          | :rate_limit_error
-          | :timeout_error
+          | :network_error
+          | :authentication_error
           | :configuration_error
 
   @type t :: %__MODULE__{

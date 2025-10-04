@@ -47,7 +47,7 @@ defmodule Nexlm.Providers.Anthropic do
   """
 
   @behaviour Nexlm.Behaviour
-  alias Nexlm.{Config, Debug, Error, Message}
+  alias Nexlm.{Config, Debug, Error, HTTP, Message}
 
   @receive_timeout 300_000
   @endpoint_url "https://api.anthropic.com/v1"
@@ -133,7 +133,7 @@ defmodule Nexlm.Providers.Anthropic do
     Debug.log_request(:anthropic, :post, url, headers, request)
 
     Debug.time_call("Anthropic API request", fn ->
-      case Req.post(url,
+      case HTTP.post(url,
              json: request,
              headers: headers,
              receive_timeout: config.receive_timeout
@@ -144,14 +144,15 @@ defmodule Nexlm.Providers.Anthropic do
 
         {:ok, %{status: status, body: %{"error" => %{"message" => message}} = body} = response} ->
           Debug.log_response(status, response.headers, body)
-          error_type = if status >= 500, do: :provider_error, else: :provider_error
-          {:error, Error.new(error_type, message, :anthropic)}
+          {:error, Error.new(:provider_error, message, :anthropic, %{status: status})}
 
         {:ok, %{status: status, body: body} = response} ->
           Debug.log_response(status, response.headers, body)
 
           {:error,
-           Error.new(:provider_error, "Unexpected response: #{inspect(body)}", :anthropic)}
+           Error.new(:provider_error, "Unexpected response: #{inspect(body)}", :anthropic, %{
+             status: status
+           })}
 
         {:error, %{reason: reason}} ->
           Debug.log_response("ERROR", %{}, %{reason: reason})

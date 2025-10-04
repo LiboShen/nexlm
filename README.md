@@ -175,18 +175,26 @@ case Nexlm.complete(model, messages, opts) do
   {:ok, response} ->
     handle_success(response)
 
-  {:error, %Nexlm.Error{type: :rate_limit_error}} ->
-    apply_rate_limit_backoff()
+  {:error, %Nexlm.Error{type: :network_error}} ->
+    retry_request()
 
-  {:error, %Nexlm.Error{type: :provider_error, message: msg}} ->
-    Logger.error("Provider error: #{msg}")
-    handle_provider_error()
+  {:error, %Nexlm.Error{type: :provider_error, message: msg, details: details}} ->
+    status = Map.get(details, :status, "n/a")
+    Logger.error("Provider error (status #{status}): #{msg}")
+    handle_provider_error(status)
+
+  {:error, %Nexlm.Error{type: :authentication_error}} ->
+    refresh_credentials()
 
   {:error, error} ->
     Logger.error("Unexpected error: #{inspect(error)}")
     handle_generic_error()
 end
 ```
+
+`%Nexlm.Error{details: %{status: status}}` captures the provider's HTTP status
+code whenever the failure comes directly from the upstream API, making it easy
+to decide whether to retry.
 
 ## Model Names
 

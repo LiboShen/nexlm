@@ -5,13 +5,22 @@ defmodule Nexlm.Providers.OpenAITest do
 
   setup do
     original_config = Application.get_env(:nexlm, OpenAI)
+    original_http_client = Application.get_env(:nexlm, :http_client)
 
     Application.put_env(:nexlm, OpenAI, api_key: "test_key")
+    Application.put_env(:nexlm, :http_client, Test.Support.HTTPStub)
+    Test.Support.HTTPStub.reset()
 
     on_exit(fn ->
       case original_config do
         nil -> Application.delete_env(:nexlm, OpenAI)
         config -> Application.put_env(:nexlm, OpenAI, config)
+      end
+
+      if original_http_client do
+        Application.put_env(:nexlm, :http_client, original_http_client)
+      else
+        Application.delete_env(:nexlm, :http_client)
       end
     end)
 
@@ -296,6 +305,24 @@ defmodule Nexlm.Providers.OpenAITest do
       assert parsed.content == ""
       assert [tool_call] = parsed.tool_calls
       assert tool_call.name == "get_weather"
+    end
+  end
+
+  describe "call/2" do
+    test "includes status in provider error details" do
+      Test.Support.HTTPStub.put(fn _url, _opts ->
+        {:ok,
+         %{
+           status: 400,
+           headers: [],
+           body: %{"error" => %{"message" => "bad request"}}
+         }}
+      end)
+
+      {:ok, config} = OpenAI.init(model: "openai/gpt-4")
+
+      assert {:error, %Error{type: :provider_error, details: %{status: 400}}} =
+               OpenAI.call(config, %{})
     end
   end
 end

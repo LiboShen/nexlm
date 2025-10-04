@@ -5,13 +5,22 @@ defmodule Nexlm.Providers.AnthropicTest do
 
   setup do
     original_config = Application.get_env(:nexlm, Anthropic)
+    original_http_client = Application.get_env(:nexlm, :http_client)
 
     Application.put_env(:nexlm, Anthropic, api_key: "test_key")
+    Application.put_env(:nexlm, :http_client, Test.Support.HTTPStub)
+    Test.Support.HTTPStub.reset()
 
     on_exit(fn ->
       case original_config do
         nil -> Application.delete_env(:nexlm, Anthropic)
         config -> Application.put_env(:nexlm, Anthropic, config)
+      end
+
+      if original_http_client do
+        Application.put_env(:nexlm, :http_client, original_http_client)
+      else
+        Application.delete_env(:nexlm, :http_client)
       end
     end)
 
@@ -93,6 +102,24 @@ defmodule Nexlm.Providers.AnthropicTest do
       assert [message] = request.messages
       assert length(message.content) == 2
       assert %{cache_control: %{type: "ephemeral"}} = Enum.at(message.content, 1)
+    end
+  end
+
+  describe "call/2" do
+    test "includes status in provider error details" do
+      Test.Support.HTTPStub.put(fn _url, _opts ->
+        {:ok,
+         %{
+           status: 503,
+           headers: [],
+           body: %{"error" => %{"message" => "service unavailable"}}
+         }}
+      end)
+
+      {:ok, config} = Anthropic.init(model: "claude-3")
+
+      assert {:error, %Error{type: :provider_error, details: %{status: 503}}} =
+               Anthropic.call(config, %{})
     end
   end
 end

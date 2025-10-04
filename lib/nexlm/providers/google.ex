@@ -59,7 +59,7 @@ defmodule Nexlm.Providers.Google do
   """
 
   @behaviour Nexlm.Behaviour
-  alias Nexlm.{Config, Debug, Error, Message}
+  alias Nexlm.{Config, Debug, Error, HTTP, Message}
 
   @receive_timeout 300_000
   @endpoint_url "https://generativelanguage.googleapis.com/v1beta"
@@ -146,7 +146,7 @@ defmodule Nexlm.Providers.Google do
     Debug.log_request(:google, :post, url, [], request)
 
     Debug.time_call("Google API request", fn ->
-      case Req.post(url,
+      case HTTP.post(url,
              json: request,
              receive_timeout: config.receive_timeout
            ) do
@@ -157,11 +157,15 @@ defmodule Nexlm.Providers.Google do
 
         {:ok, %{status: status, body: %{"error" => %{"message" => message}} = body} = response} ->
           Debug.log_response(status, response.headers, body)
-          {:error, Error.new(:provider_error, message, :google)}
+          {:error, Error.new(:provider_error, message, :google, %{status: status})}
 
         {:ok, %{status: status, body: body} = response} ->
           Debug.log_response(status, response.headers, body)
-          {:error, Error.new(:provider_error, "Unexpected response: #{inspect(body)}", :google)}
+
+          {:error,
+           Error.new(:provider_error, "Unexpected response: #{inspect(body)}", :google, %{
+             status: status
+           })}
 
         {:error, %{reason: reason}} ->
           Debug.log_response("ERROR", %{}, %{reason: reason})
