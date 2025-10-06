@@ -280,7 +280,7 @@ export NEXLM_DEBUG=true
 
 When enabled, debug logs will show:
 - Complete HTTP requests (with sensitive headers redacted)
-- Complete HTTP responses  
+- Complete HTTP responses
 - Message validation and transformation steps
 - Request timing information
 - Cache control headers (useful for debugging caching issues)
@@ -302,6 +302,61 @@ This is particularly useful for:
 - Understanding request/response transformations
 - Troubleshooting API issues
 - Performance monitoring
+
+## Testing Without Live HTTP Calls
+
+Nexlm ships with a dedicated stub provider (`Nexlm.Providers.Stub`) so you can exercise your application without touching real LLM endpoints. Any model starting with `"stub/"` is routed to the in-memory store rather than performing HTTP requests.
+
+### Queue Responses
+
+Use `Nexlm.Providers.Stub.Store` to script the responses you need:
+
+```elixir
+alias Nexlm.Providers.Stub.Store
+
+setup do
+  Store.put("stub/echo", fn _config, %{messages: [%{content: content} | _]} ->
+    {:ok, %{role: "assistant", content: "stubbed: #{content}"}}
+  end)
+
+  on_exit(&Store.clear/0)
+end
+
+test "responds with stubbed data" do
+  assert {:ok, %{content: "stubbed: ping"}} =
+           Nexlm.complete("stub/echo", [%{"role" => "user", "content" => "ping"}])
+end
+```
+
+Each call dequeues the next scripted response, keeping async tests isolated by storing state in the process dictionary.
+
+### Deterministic Sequences
+
+Queue multiple steps for tool flows or retries with `put_sequence/2`:
+
+```elixir
+Store.put_sequence("stub/tool-flow", [
+  {:ok,
+   %{
+     role: "assistant",
+     tool_calls: [%{id: "call-1", name: "lookup", arguments: %{id: 42}}]
+   }},
+  {:ok, %{role: "assistant", content: "lookup:42"}}
+])
+```
+
+### Scoped Helpers
+
+Wrap short-lived stubs with `with_stub/3` to avoid manual cleanup:
+
+```elixir
+Store.with_stub("stub/error", {:error, :service_unavailable}, fn ->
+  {:error, error} = Nexlm.complete("stub/error", messages)
+  assert error.type == :provider_error
+end)
+```
+
+Returning `{:error, term}` or raising inside the function automatically produces a `%Nexlm.Error{provider: :stub}` so your application can exercise failure paths without reaching the network.
 
 ## Testing
 
