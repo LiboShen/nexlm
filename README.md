@@ -328,7 +328,7 @@ test "responds with stubbed data" do
 end
 ```
 
-Each call dequeues the next scripted response, keeping async tests isolated by storing state in the process dictionary.
+Each call dequeues the next scripted response, and the store keeps queues scoped to the owning test process so async tests stay isolated.
 
 ### Deterministic Sequences
 
