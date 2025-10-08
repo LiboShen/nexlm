@@ -87,6 +87,38 @@ defmodule Nexlm.Providers.AnthropicTest do
       assert message.role == "user"
     end
 
+    test "formats structured system content", %{config: config} do
+      messages = [
+        %{
+          role: "system",
+          content: [
+            %{
+              type: "text",
+              text: "You are a concise assistant",
+              cache: true,
+              data: nil,
+              mime_type: nil
+            }
+          ]
+        },
+        %{role: "user", content: "Hello"}
+      ]
+
+      assert {:ok, request} = Anthropic.format_request(config, messages)
+
+      assert [
+               %{
+                 type: "text",
+                 text: "You are a concise assistant",
+                 cache_control: %{type: "ephemeral"}
+               } = item
+             ] =
+               request.system
+
+      refute Map.has_key?(item, :data)
+      refute Map.has_key?(item, :mime_type)
+    end
+
     test "formats messages with images", %{config: config} do
       messages = [
         %{

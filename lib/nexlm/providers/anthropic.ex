@@ -90,8 +90,8 @@ defmodule Nexlm.Providers.Anthropic do
 
     {system_message, messages} =
       case messages do
-        [%{role: "system", content: system} | rest] ->
-          {system, rest}
+        [%{role: "system"} = system | rest] ->
+          {format_system_message(system), rest}
 
         messages ->
           {nil, messages}
@@ -194,6 +194,19 @@ defmodule Nexlm.Providers.Anthropic do
   end
 
   # Private helpers
+
+  defp format_system_message(%{content: content}) when is_binary(content), do: content
+
+  defp format_system_message(%{content: content}) when is_list(content) do
+    content
+    |> Enum.map(&format_content_item/1)
+    |> case do
+      [] -> nil
+      formatted -> formatted
+    end
+  end
+
+  defp format_system_message(_), do: nil
 
   defp format_message(%{role: "tool", tool_call_id: tool_call_id, content: content}) do
     %{

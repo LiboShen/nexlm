@@ -50,6 +50,41 @@ defmodule Integration.Providers.AnthropicTest do
       assert result.content == "10"
     end
 
+    test "handles structured system content" do
+      messages = [
+        %{
+          "role" => "system",
+          "content" => [
+            %{
+              "type" => "text",
+              "text" => "Respond with a one-word color",
+              "cache" => true
+            }
+          ]
+        },
+        %{
+          "role" => "user",
+          "content" => "Pick either red or blue"
+        }
+      ]
+
+      {:ok, result} =
+        Nexlm.complete(
+          "anthropic/claude-3-haiku-20240307",
+          messages
+        )
+
+      assert result.role == "assistant"
+
+      normalized =
+        result.content
+        |> String.trim()
+        |> String.trim_trailing(".")
+        |> String.downcase()
+
+      assert normalized in ["red", "blue"]
+    end
+
     test "handles image input" do
       # Base64 encoded small test image
       test_image =
