@@ -135,6 +135,43 @@ defmodule Nexlm.Providers.AnthropicTest do
       assert length(message.content) == 2
       assert %{cache_control: %{type: "ephemeral"}} = Enum.at(message.content, 1)
     end
+
+    test "propagates cache control for assistant tool use content", %{config: config} do
+      messages = [
+        %{
+          role: "assistant",
+          content: [
+            %{
+              type: "tool_use",
+              id: "call_123",
+              name: "fetch_data",
+              input: %{query: "SELECT 1"},
+              cache: true
+            }
+          ]
+        }
+      ]
+
+      assert {:ok, request} = Anthropic.format_request(config, messages)
+      assert [message] = request.messages
+      assert [%{cache_control: %{type: "ephemeral"}}] = message.content
+    end
+
+    test "propagates cache control for tool result messages", %{config: config} do
+      messages = [
+        %{
+          role: "tool",
+          tool_call_id: "call_123",
+          content: [
+            %{type: "text", text: "Processed", cache: true}
+          ]
+        }
+      ]
+
+      assert {:ok, request} = Anthropic.format_request(config, messages)
+      assert [message] = request.messages
+      assert [%{cache_control: %{type: "ephemeral"}}] = message.content
+    end
   end
 
   describe "call/2" do

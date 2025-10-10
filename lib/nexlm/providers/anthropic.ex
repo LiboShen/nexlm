@@ -247,8 +247,9 @@ defmodule Nexlm.Providers.Anthropic do
     maybe_add_cache_control(base, item)
   end
 
-  defp format_content_item(%{type: "tool_use", id: id, name: name, input: input}) do
-    %{type: "tool_use", id: id, name: name, input: input}
+  defp format_content_item(%{type: "tool_use", id: id, name: name, input: input} = item) do
+    base = %{type: "tool_use", id: id, name: name, input: input}
+    maybe_add_cache_control(base, item)
   end
 
   defp format_tool_call(%{id: id, name: name, arguments: input}) do
@@ -256,8 +257,11 @@ defmodule Nexlm.Providers.Anthropic do
   end
 
   defp build_tool_result(tool_call_id, content) when is_list(content) do
+    cache? = Enum.any?(content, &cache_enabled?/1)
     text = Enum.map(content, & &1.text) |> Enum.join()
+
     %{type: "tool_result", tool_use_id: tool_call_id, content: text}
+    |> maybe_add_cache_control(%{cache: cache?})
   end
 
   defp build_tool_result(tool_call_id, content) when is_binary(content) do
@@ -277,10 +281,14 @@ defmodule Nexlm.Providers.Anthropic do
   end
 
   defp maybe_add_cache_control(base, item) do
-    if Map.get(item, :cache),
+    if cache_enabled?(item),
       do: Map.put(base, :cache_control, %{type: "ephemeral"}),
       else: base
   end
+
+  defp cache_enabled?(%{cache: value}) when value in [true, "true"], do: true
+  defp cache_enabled?(%{"cache" => value}) when value in [true, "true"], do: true
+  defp cache_enabled?(_), do: false
 
   defp maybe_add_temperature(request, %{temperature: temp}) when not is_nil(temp) do
     Map.put(request, :temperature, temp)
